@@ -146,8 +146,10 @@ namespace TokenParsers {
 			if (p[0] != '0') { 
 				
 				char c;
-				while ( std::isdigit( c = *p++ ) )
+				while ( std::isdigit( c = *p ) ) {
+					p++;
 					n = 10 * n + c - '0';
+				}
 					
 				return n;
 			}
@@ -159,8 +161,9 @@ namespace TokenParsers {
 				if ( not std::isxdigit( *p ) ) Log(ERROR) << p << "malformed hexadecimal constant";
 				
 				char c;
-				while ( std::isxdigit( c = *p++ ) ) {
-
+				while ( std::isxdigit( c = *p ) ) {
+					
+					p++;
 					if ('0' <= c and c <= '9') n = 16 * n + c - '0';
 					if ('a' <= c and c <= 'f') n = 16 * n + c - 'a' + 10;
 					if ('A' <= c and c <= 'F') n = 16 * n + c - 'A' + 10;

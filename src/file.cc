@@ -22,10 +22,16 @@ NormalizedSourcePtr& NormalizedSourcePtr::operator++() {
 }
 
 std::string NormalizedSourcePtr::to_string() const {
+
+	constexpr auto RESET = "\x1b[0m";
+
+//	constexpr auto BLUE  = "\x1b[1;34m";
+//	constexpr auto RED   = "\x1b[1;31m";
+//	constexpr auto GREEN = "\x1b[1;32m";
 	
 	std::ostringstream os;
 
-	os << source_file_ptr->path << ":" << line << ":" << std::endl;
+	os << RESET << source_file_ptr->path << ":" << line << ":" << std::endl;
 	os << std::fixed << std::setw( 5 ) << line << " | ";
 	for (auto i = start_line; i and *i != '\n'; i++ ) os.put(*i);
 	os << std::endl << "      |";
