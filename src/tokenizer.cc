@@ -78,7 +78,6 @@ namespace TokenParsingUtilities {
 	static char get_escaped_char( NormalizedSourcePtr &p ) {
 		
 		if ( *p != '\\' ) return *p++;
-
 		
 		++p;
 		// Unscaping char
@@ -200,39 +199,39 @@ namespace TokenParsers {
 
 	static std::optional<Token> string( NormalizedSourcePtr p, bool has_space, bool start_of_line) {
 		
-		if ( p[0] != '"' ) return std::nullopt;
+		if ( *p != '"' ) return std::nullopt;
 		
-		auto start_ptr = p;
+		auto start_ptr = p++;
 
 		for (;;) {
-			
+
 			if ( *p == '"' ) break;
 
 			if ( *p == '\n' or *p == '\0')
 				Log(ERROR) << p << "unclosed string literal";
 				
-			if ( *p == '\\' ) p++;
+			if ( *p == '\\' ) ++p;
 			
-			p++;
+			++p;
 		}
 
 		auto end_ptr = p;
 		
 		p = start_ptr; ++p;
-		
+
 		// Unscaping literal
 		std::string literal;
 		while (p != end_ptr) 
 			literal.push_back( TokenParsingUtilities::get_escaped_char(p) );
 		
 		end_ptr++;
-		
+
 		return std::make_optional<Token>(Token::STRING_LITERAL, literal, start_ptr, end_ptr, has_space, start_of_line);
 	}
 
 	static std::optional<Token> character(  NormalizedSourcePtr p, bool has_space, bool start_of_line ) { 
 
-		if ( p[0] != '\'' ) return std::nullopt;
+		if ( *p != '\'' ) return std::nullopt;
 
 		auto start_ptr = p++;
 
@@ -241,7 +240,7 @@ namespace TokenParsers {
 		if ( *p != '\'')
 				Log(ERROR) << p << "unclosed character literal";
 
-		auto end_ptr = p;
+		auto end_ptr = ++p;
 		
 		return std::make_optional<Token>(Token::NUMERIC, val, start_ptr, end_ptr, has_space, start_of_line);
 	}

@@ -62,9 +62,9 @@ class NormalizedSourcePtr {
 	};
 
 	class SourcePtr {
-		
 		boost::iostreams::mapped_file_source *src;
 		boost::iostreams::mapped_file_source::iterator it = nullptr;
+
 	public:
 		SourcePtr(const SourceFile &source_file) : src(source_file.source.get()), it(src->begin()) {} 
 
@@ -107,7 +107,7 @@ public:
 	
 	NormalizedSourcePtr& operator+=(size_t idx) { while (idx--) ++(*this); return *this; }
 	char operator[](size_t idx) { auto tmp = *this; tmp += idx; return *tmp; }
-	
+
 	auto operator<=>(const NormalizedSourcePtr& o) const = default;
 	operator bool() const { return it; }
 
