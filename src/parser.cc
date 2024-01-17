@@ -426,19 +426,27 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 	for (auto &recipe : grammar.symbols[target].recipes) {
 		
 		// skip front-recursive recipes.
-		if (recipe.front() == target) continue;
+		{
+			bool found = false;
+			for (auto &p : parent_targets)
+				if (recipe.front() == p)
+					found = true;
+			if (found) continue;
+		}
 		
 		std::vector<SyntaxTree> ast;
 		ast.emplace_back(begin, target);
 		ast.back().end = begin;
-				
-		for (auto component : recipe) {
 
+		parent_targets.push_back(target);
+		for (auto &component : recipe) {
+
+			
 			std::vector<SyntaxTree> tentative_ast;
 
 			for (auto &a : ast) {
 
-				for (auto &c :parse(a.end, end, component, debug)) {
+				for (auto &c :parse(a.end, end, component, debug, parent_targets)) {
 				
 					auto a2 = a;
 					a2.end = c.end;
@@ -453,6 +461,7 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 			}
 			
 			ast = std::move(tentative_ast);
+			if (&component == &recipe.front()) parent_targets.pop_back();
 		}
 		
 		for (auto &a : ast)
@@ -460,7 +469,7 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 	}
 
 	// then, for each tentative ast, we tacke the recipes that are front-recursive
-	{
+	/*{
 		std::vector<SyntaxTree> all_expanded_ast;
 		
 		while (not all_ast.empty()) {
@@ -513,7 +522,7 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 		}
 		
 		all_ast = all_expanded_ast;
-	}
+	}*/
 
 	if (grammar.reducible_symbols.count(target)) {
 		for (auto &ast : all_ast) {
@@ -544,7 +553,6 @@ SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
 	
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
-	
 	std::vector<std::string> parent_targets;
 	
 	auto all_ast = parse(tokens.begin(), tokens.end(), root, debug, parent_targets);
