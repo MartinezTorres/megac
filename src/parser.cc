@@ -21,7 +21,11 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 struct Grammar {
 	
 	
-	// We store the grammar inside an struct to be able to hide it. It follows BISON format.
+	// We store the grammar inside an struct to be able to fold it in the gui. 
+	// It follows a format similar to BISON with the following exceptions. 
+	// A term between [square_brackets] is optional.
+	// Symbols between "double quotes" can be reduced if only have one child.
+	// Terms between "double quotes" won't be stored as children.
 	// Based on: https://www.lysator.liu.se/c/ANSI-C-grammar-y.html
 	struct GrammarDescription : public std::string {
 		GrammarDescription() : std::string (
@@ -29,34 +33,35 @@ R"GRAMMAR(
 ########################################################################
 # EXPRESSIONS ;
 
+RESERVED_KEYWORDS : int | goto | alignas | alignof  | and | and_eq | asm | atomic_cancel  | atomic_commit  | atomic_noexcept  | auto     | bitand | bitor | bool | break | case | catch | char | char8_t  | char16_t  | char32_t  | class  | compl | concept  | const | consteval  | constexpr  | constinit  | const_cast | continue | co_await  | co_return  | co_yield  | decltype  | default  | delete  | do | double | dynamic_cast | else | enum  | explicit | export   | extern  | false | float | for  | friend | goto | if   | inline  | int | long | mutable  | namespace | new | noexcept  | not | not_eq | nullptr  | operator  | or | or_eq | private  | protected | public | reflexpr  | register  | reinterpret_cast | requires  | return | short | signed | sizeof  | static | static_assert  | static_cast | struct  | switch | synchronized  | template | this  | thread_local  | throw | true | try | typedef | typeid | typename | union | unsigned | using  | virtual | void | volatile | wchar_t | while | xor | xor_eq ;
+
+ERASED : ERASED ;
+
 IDENTIFIER : IDENTIFIER ;
 CONSTANT : CONSTANT ;
 STRING_LITERAL : STRING_LITERAL ;
 
-primary_expression
+"primary_expression"
 	: IDENTIFIER
 	| CONSTANT
 	| STRING_LITERAL
-	| ( expression )
+	| "(" expression ")"
 	;
 
-postfix_expression
+"postfix_expression"
 	: primary_expression
 	| postfix_expression [ expression ]
 	| postfix_expression ( )
 	| postfix_expression ( argument_expression_list )
 	| postfix_expression . IDENTIFIER
-	| postfix_expression -> IDENTIFIER
-	| postfix_expression ++
-	| postfix_expression --
 	;
 
 argument_expression_list
 	: assignment_expression
-	| argument_expression_list , assignment_expression
+	| argument_expression_list "," assignment_expression
 	;
 
-unary_expression
+"unary_expression"
 	: postfix_expression
 	| ++ unary_expression
 	| -- unary_expression
@@ -65,133 +70,113 @@ unary_expression
 	| sizeof ( type_name )
 	;
 
-unary_operator
-	: &
-	| *
-	| +
-	| -
-	| ~
-	| !
-	;
+unary_operator : !& | !+ | !- | !~ | !! ;
 
-cast_expression
+"cast_expression"
 	: unary_expression
 	| ( type_name ) cast_expression
 	;
 
-multiplicative_expression
+"multiplicative_expression"
 	: cast_expression
-	| multiplicative_expression * cast_expression
-	| multiplicative_expression / cast_expression
-	| multiplicative_expression % cast_expression
+	| multiplicative_expression !* cast_expression
+	| multiplicative_expression !/ cast_expression
+	| multiplicative_expression !% cast_expression
 	;
 
-additive_expression
+"additive_expression"
 	: multiplicative_expression
-	| additive_expression + multiplicative_expression
-	| additive_expression - multiplicative_expression
+	| additive_expression !+ multiplicative_expression
+	| additive_expression !- multiplicative_expression
 	;
 
-shift_expression
+"shift_expression"
 	: additive_expression
-	| shift_expression << additive_expression
-	| shift_expression >> additive_expression
+	| shift_expression !<< additive_expression
+	| shift_expression !>> additive_expression
 	;
 
-relational_expression
+"relational_expression"
 	: shift_expression
-	| relational_expression < shift_expression
-	| relational_expression > shift_expression
-	| relational_expression <= shift_expression
-	| relational_expression >= shift_expression
+	| relational_expression !< shift_expression
+	| relational_expression !> shift_expression
+	| relational_expression !<= shift_expression
+	| relational_expression !>= shift_expression
 	;
 
-equality_expression
+"equality_expression"
 	: relational_expression
-	| equality_expression == relational_expression
-	| equality_expression != relational_expression
+	| equality_expression !== relational_expression
+	| equality_expression !!= relational_expression
 	;
 
-and_expression
+"and_expression"
 	: equality_expression
-	| and_expression & equality_expression
+	| and_expression !& equality_expression
 	;
 
-exclusive_or_expression
+"exclusive_or_expression"
 	: and_expression
-	| exclusive_or_expression ^ and_expression
+	| exclusive_or_expression !^ and_expression
 	;
 
-inclusive_or_expression
+"inclusive_or_expression"
 	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+	| inclusive_or_expression !| exclusive_or_expression
 	;
 
-logical_and_expression
+"logical_and_expression"
 	: inclusive_or_expression
-	| logical_and_expression and inclusive_or_expression
+	| logical_and_expression !and inclusive_or_expression
 	;
 
-logical_or_expression
+"logical_or_expression"
 	: logical_and_expression
-	| logical_or_expression or logical_and_expression
+	| logical_or_expression !or logical_and_expression
 	;
 
-conditional_expression
+"conditional_expression"
 	: logical_or_expression
 	| logical_or_expression ? expression : conditional_expression
 	;
 
-assignment_expression
+"assignment_expression"
 	: conditional_expression
-	| unary_expression assignment_operator assignment_expression
+	| unary_expression !assignment_operator assignment_expression
 	;
 
-assignment_operator
-	: =
-	| >>=	
-	| <<=	
-	| +=	
-	| -=	
-	| *=	
-	| /=	
-	| %=	
-	| &=	
-	| ^=	
-	| |=	
-	;
+"assignment_operator" : != | >>= | <<= | += | -= | *= | /= | %= | &= | ^= | |= ;
 
-expression
+"expression"
 	: assignment_expression
-	| expression , assignment_expression
-	;
-
-constant_expression
-	: conditional_expression
+	| expression "," assignment_expression
 	;
 	
 ########################################################################
 # DECLARATIONS ;	
 	
-declaration
-	: type_name init_declarator_list ';'
+"declaration"
+	: ";"
+	| type_name init_declarator_list ";"
+	| typedef type_name IDENTIFIER ";"
+	| "#" !include STRING_LITERAL
 	;
 
 init_declarator_list
 	: IDENTIFIER
 	| IDENTIFIER = initializer
-	| init_declarator_list , IDENTIFIER
-	| init_declarator_list , IDENTIFIER = initializer
+	| init_declarator_list "," IDENTIFIER
+	| init_declarator_list "," IDENTIFIER = initializer
 	;
 
-initializer
+"initializer"
 	: assignment_expression
-	| { initializer_list }
+	| "{" initializer_list [","] "}"
 	;
 
 initializer_list
 	: initializer
-	| initializer_list , initializer
+	| initializer_list "," initializer
 	;
 
 type_name
@@ -201,32 +186,35 @@ type_name
 	| int8
 	| uint16
 	| int16
-	| type_name [ [CONSTANT] ]
-	| function_type
+	| array: type_name [ [CONSTANT] ]
+	| struct { [translation_unit] }
+	| union { [translation_unit] }
+	| function [ [type_name] ( [parameter_list] ) ]
+	| type_name : CONSTANT
 	;
 
 ########################################################################
 # STATEMENT ;
 
-statement_list
+"statement_list"
 	: statement
 	| statement_list statement
 	;
 
 statement
-	: { [statement_list] }
-	| ';'
+	: "{" [statement_list] "}"
+	| ";"
 	| declaration
-	| expression ';'
+	| expression ";"
 	| if ( expression ) statement
 	| if ( expression ) statement else statement
 	| while ( expression ) statement
-	| do statement while ( expression ) ';'
+	| do statement while ( expression ) ";"
 	| for ( statement expression ';' expression ) statement
-	| continue ';'
-	| break ';'
-	| return ';'
-	| return expression ';'
+	| continue ";"
+	| break ";"
+	| return ";"
+	| return expression ";"
 	;
 
 ########################################################################
@@ -235,16 +223,12 @@ statement
 parameter_list
 	: type_name
 	| type_name IDENTIFIER
-	| parameter_list , type_name
-	| parameter_list , type_name IDENTIFIER
-	;
-
-function_type
-	: function [ [type_name] ( [parameter_list] ) ]
+	| parameter_list "," type_name
+	| parameter_list "," type_name IDENTIFIER
 	;
 
 function_definition
-	: type_name IDENTIFIER ( [parameter_list] )  { [statement] }
+	: type_name IDENTIFIER "(" [parameter_list] ")" "{" [statement_list] "}"
 	;
 
 ########################################################################
@@ -274,7 +258,8 @@ translation_unit
 	};
 	
 	std::map<std::string, Symbol> symbols;
-	std::set<std::string> keywords;
+	std::set<std::string> keywords, reducible_symbols;
+	std::string subsymbol_name;
 	
 	Grammar() {
 		
@@ -296,6 +281,11 @@ translation_unit
 			
 			if (s.front()=='#') { while (iss >> s) if (s == ";") break; iss >> s; }
 			
+			if (s.front() == '"') {
+				s = s.substr(1,s.size()-2);
+				reducible_symbols.insert(s);
+			}
+
 			Symbol &symbol = symbols[s];
 			symbol.name = s;
 			
@@ -307,20 +297,45 @@ translation_unit
 				
 				if (s=="|" or s==";") { // recipe is finished.
 					
-					for (auto &recipe : recipes) {
-						Assert(not recipe.empty()) << " found an empty recipe in symbol " << symbol.name;
-						symbol.recipes.push_back(recipe);
+					if (subsymbol_name.empty()) {
+						
+						for (auto &recipe : recipes) {
+							Assert(not recipe.empty()) << " found an empty recipe in symbol " << symbol.name;
+							symbol.recipes.push_back(recipe);
+						}
+						recipes.clear();
+					} else {
+						
+						Log(ERROR_NOTHROW) << "Subsymbol: " << subsymbol_name;
+						symbol.recipes.emplace_back(1,subsymbol_name);
+						
+						Symbol &subsymbol = symbols[subsymbol_name];
+						subsymbol.name = subsymbol_name;
+
+						for (auto &recipe : recipes) {
+							Assert(not recipe.empty()) << " found an empty recipe in symbol " << subsymbol_name;
+							Log(ERROR_NOTHROW) << "Subsymbol: " << subsymbol_name << " recipe: " << ([&](){std::ostringstream oss; for (auto &v:recipe) oss<<v<<" "; return oss.str();}());
+							subsymbol.recipes.push_back(recipe);
+						}
+						recipes.clear();
+												
+						subsymbol_name.clear();
 					}
-					recipes.clear();
 					if (s==";") break;
 					
+				} else if (s.size()>1 and s.back() == ':') {
+				
+					s.pop_back();
+					subsymbol_name = s;
+					symbols[s];
+					 
 				} else {
 					
 					Assert(not s.empty()) << " broken grammar";
 
 					bool optional = false;
 
-					if (s.front() == '\'' or s.front() == '"') {
+					if (s.front() == '\'') {
 						s = s.substr(1,s.size()-2);
 					}
 
@@ -328,6 +343,8 @@ translation_unit
 						s = s.substr(1,s.size()-2);
 						optional = true;
 					}
+
+					
 					
 					if (recipes.empty()) recipes.emplace_back();
 
@@ -350,8 +367,8 @@ translation_unit
 				}
 			}
 		}
-		Log(ERROR_NOTHROW) << keywords.size();
-		for (auto &keyword : keywords) Log(ERROR_NOTHROW) << keyword;
+		Log(DEBUG) << " Grammar found " << keywords.size() << " keywords.";
+		Log(EXTRA) << [&](){ std::ostringstream oss; for (auto &keyword : keywords) oss << keyword << " "; return oss.str(); }(); 
 	}
 };
 
@@ -362,7 +379,7 @@ struct ParseDebug {
 	std::vector<std::string> expected_targets;
 };
 
-static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, std::string target, ParseDebug &debug) {
+static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, std::string target, ParseDebug &debug, std::vector<std::string> &parent_targets) {
 
 	// tackle leaf nodes: which can be a keyword, an identifier, a numeric constant, or a string literal.
 	{
@@ -377,8 +394,15 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 				}
 				return std::vector<SyntaxTree>();
 			}
+			if (target.front()=='"') return std::vector<SyntaxTree>(1, SyntaxTree(begin, "ERASED"));
 			return std::vector<SyntaxTree>(1, SyntaxTree(begin, target));
 		};
+
+		if (grammar.symbols.count(target) == 0 and target.front() == '"') 
+			return expect( (begin->type != Token::STRING_LITERAL) and ('"' + begin->literal + '"' == target) );
+
+		if (grammar.symbols.count(target) == 0 and target.front() == '!') 
+			return expect( (begin->type != Token::STRING_LITERAL) and ('!' + begin->literal == target) );
 
 		if (grammar.symbols.count(target) == 0) 
 			return expect( (begin->type != Token::STRING_LITERAL) and (begin->literal == target) );
@@ -408,42 +432,46 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 		ast.emplace_back(begin, target);
 		ast.back().end = begin;
 				
-		for (auto &component : recipe) {
+		for (auto component : recipe) {
 
 			std::vector<SyntaxTree> tentative_ast;
 
 			for (auto &a : ast) {
 
-				std::vector<SyntaxTree> component_ast = parse(a.end, end, component, debug);
-				for (auto &c :component_ast) {
+				for (auto &c :parse(a.end, end, component, debug)) {
 				
 					auto a2 = a;
-					a2.children.push_back( c );
 					a2.end = c.end;
-					tentative_ast.push_back(a2);
+					if (component.front() == '!' and component.size()>1) {
+						a2.symbol = c.symbol.substr(1);
+					} else if (c.symbol != "ERASED") {
+						a2.children.push_back( std::move(c) );
+					}
+
+					tentative_ast.push_back(std::move(a2));
 				}
 			}
 			
-			ast = tentative_ast;
+			ast = std::move(tentative_ast);
 		}
 		
 		for (auto &a : ast)
-			all_ast.push_back(a);
+			all_ast.push_back(std::move(a));
 	}
-	
+
 	// then, for each tentative ast, we tacke the recipes that are front-recursive
 	{
 		std::vector<SyntaxTree> all_expanded_ast;
 		
 		while (not all_ast.empty()) {
 
-			SyntaxTree ast_to_expand = all_ast.back();
+			SyntaxTree ast_to_expand = std::move(all_ast.back());
 			all_ast.pop_back();
 
 			all_expanded_ast.push_back(ast_to_expand);
 			
 			for (auto &recipe : grammar.symbols[target].recipes) {
-				
+								
 				// skip non front-recursive recipes.
 				if (recipe.front() != target) continue;
 				
@@ -451,42 +479,59 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 				ast.emplace_back(begin, target);
 				ast.back().end = begin;
 				
-				for (auto &component : recipe) {
-
+				for (auto component : recipe) {
+					
 					std::vector<SyntaxTree> tentative_ast;
 
 					for (auto &a : ast) {
 						
 						if (a.end == begin) {
 						
-							auto a2 = a;
-							a2.children.push_back( ast_to_expand );
-							a2.end = ast_to_expand.end;
-							tentative_ast.push_back(a2);
+							tentative_ast.push_back(ast_to_expand);
 							continue;
 						}
 
-						std::vector<SyntaxTree> component_ast = parse(a.end, end, component, debug);
-						for (auto &c :component_ast) {
+						for (auto &c : parse(a.end, end, component, debug)) {
 						
 							auto a2 = a;
-							a2.children.push_back( c );
 							a2.end = c.end;
-							tentative_ast.push_back(a2);
+							if (component.front() == '!' and component.size()>1) {
+								a2.symbol = c.symbol.substr(1);
+							} else if (c.symbol != "ERASED") {
+								a2.children.push_back( std::move(c) );
+							}
+							tentative_ast.push_back(std::move(a2));
 						}
 					}
 					
-					ast = tentative_ast;
+					ast = std::move(tentative_ast);
 				}
 				
 				for (auto &a : ast)
-					all_ast.push_back(a);
+					all_ast.push_back(std::move(a));
 			}			
 		}
 		
 		all_ast = all_expanded_ast;
 	}
 
+	if (grammar.reducible_symbols.count(target)) {
+		for (auto &ast : all_ast) {
+			if (ast.symbol != target) {
+				Log(DEBUG) << ast.symbol << " " << target;
+				continue;
+			}
+			if (ast.children.empty()) {
+				ast.symbol = "ERASED";
+			}
+			if (ast.children.size() == 1) {
+				auto e = ast.end;
+				ast = std::move(ast.children.front());
+				ast.end = e;
+			}
+		}
+	}
+	
 	return all_ast;
 }
 
@@ -500,7 +545,9 @@ SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
 	
-	auto all_ast = parse(tokens.begin(), tokens.end(), root, debug);
+	std::vector<std::string> parent_targets;
+	
+	auto all_ast = parse(tokens.begin(), tokens.end(), root, debug, parent_targets);
 	
 	if (all_ast.empty()) {
 
