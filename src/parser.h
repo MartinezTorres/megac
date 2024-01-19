@@ -8,7 +8,7 @@ struct SyntaxTree {
 
 	using TI = std::vector<Token>::const_iterator;
 	
-	TI begin, end;
+	TI first, last;
 	std::string symbol;
 	
 	std::vector<SyntaxTree> children;

@@ -8,7 +8,7 @@
 std::string SyntaxTree::to_string(std::string prefix) const {
 	
 	std::ostringstream oss;
-	if (symbol == "IDENTIFIER") { oss << prefix << "- " << symbol << " " << begin->to_string() << std::endl;
+	if (symbol == "IDENTIFIER") { oss << prefix << "- " << symbol << " " << first->to_string() << std::endl;
 	} else { oss << prefix << "- " << symbol << std::endl;
 	}
 	for (auto &c : children) {
@@ -158,13 +158,13 @@ unary_operator : !& | !+ | !- | !~ | !! ;
 "declaration"
 	: ";"
 	| type_name init_declarator_list ";"
-	| typedef type_name IDENTIFIER ";"
+	| !typedef type_name IDENTIFIER ";"
 	| "#" !include STRING_LITERAL
 	;
 
-init_declarator_list
+"init_declarator_list"
 	: IDENTIFIER
-	| IDENTIFIER = initializer
+	| init=: IDENTIFIER "=" initializer
 	| init_declarator_list "," IDENTIFIER
 	| init_declarator_list "," IDENTIFIER = initializer
 	;
@@ -174,7 +174,7 @@ init_declarator_list
 	| "{" initializer_list [","] "}"
 	;
 
-initializer_list
+"initializer_list"
 	: initializer
 	| initializer_list "," initializer
 	;
@@ -186,11 +186,11 @@ type_name
 	| int8
 	| uint16
 	| int16
-	| array: type_name [ [CONSTANT] ]
-	| struct { [translation_unit] }
-	| union { [translation_unit] }
-	| function [ [type_name] ( [parameter_list] ) ]
-	| type_name : CONSTANT
+	| array: type_name "[" [CONSTANT] "]"
+	| !struct "{" [translation_unit] "}"
+	| !union "{" [translation_unit] "}"
+	| !function [ [type_name] ( [parameter_list] ) ]
+	| bit_field: type_name : CONSTANT
 	;
 
 ########################################################################
@@ -379,77 +379,102 @@ struct ParseDebug {
 	std::vector<std::string> expected_targets;
 };
 
-static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, std::string target, ParseDebug &debug, std::vector<std::string> &parent_targets) {
+static std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, std::string target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens = std::vector<std::string>()) {
+
+	// Quick workaround, kill deep chains
+	//if (parent_targets_without_consuming_tokens.size()>50) 
+	//	return std::vector<SyntaxTree>();
+	
+	// This filters out non-trivially front-recursive recipes. I haven't slept in a week while trying and failing to find a general solution for this problem. Randomly, some kind of programming deity just put me this idea on my mind. It seems to work. I have no idea why.
+	if (parent_targets_without_consuming_tokens.size()>2) {
+		size_t N = parent_targets_without_consuming_tokens.size();
+		bool parent_is_on_the_list = false;
+		for (size_t n = 0; n < N-2; n++)
+			if (parent_targets_without_consuming_tokens[n] == parent_targets_without_consuming_tokens[N-2])
+				parent_is_on_the_list = true;
+				
+		if (parent_is_on_the_list) {
+			for (size_t n = 0; n < N-1; n++)
+				if (parent_targets_without_consuming_tokens[n] == parent_targets_without_consuming_tokens[N-1])
+					return std::vector<SyntaxTree>();
+		}
+	}
+	
+
 
 	// tackle leaf nodes: which can be a keyword, an identifier, a numeric constant, or a string literal.
 	{
 		auto expect = [&](bool condition) -> std::vector<SyntaxTree> {
-			if (not condition or begin==end) {
-				if (debug.last_error_token<begin) {
-					debug.last_error_token = begin;
+			if (not condition or token_it == last_token) {
+				if (debug.last_error_token < token_it) {
+					debug.last_error_token = token_it;
 					debug.expected_targets.clear();
 				}
-				if (debug.last_error_token==begin) {
+				if (debug.last_error_token == token_it) {
 					debug.expected_targets.push_back(target);
 				}
 				return std::vector<SyntaxTree>();
 			}
-			if (target.front()=='"') return std::vector<SyntaxTree>(1, SyntaxTree(begin, "ERASED"));
-			return std::vector<SyntaxTree>(1, SyntaxTree(begin, target));
+			if (target.front()=='"') return std::vector<SyntaxTree>(1, SyntaxTree(token_it, "ERASED"));
+			return std::vector<SyntaxTree>(1, SyntaxTree(token_it, target));
 		};
 
 		if (grammar.symbols.count(target) == 0 and target.front() == '"') 
-			return expect( (begin->type != Token::STRING_LITERAL) and ('"' + begin->literal + '"' == target) );
+			return expect( (token_it->type != Token::STRING_LITERAL) and ('"' + token_it->literal + '"' == target) );
 
 		if (grammar.symbols.count(target) == 0 and target.front() == '!') 
-			return expect( (begin->type != Token::STRING_LITERAL) and ('!' + begin->literal == target) );
+			return expect( (token_it->type != Token::STRING_LITERAL) and ('!' + token_it->literal == target) );
 
 		if (grammar.symbols.count(target) == 0) 
-			return expect( (begin->type != Token::STRING_LITERAL) and (begin->literal == target) );
+			return expect( (token_it->type != Token::STRING_LITERAL) and (token_it->literal == target) );
 
 		// Also there are some leaf nodes harcoded in the symbol table
 		if ( target == "IDENTIFIER" ) 
-			return expect( (begin->type == Token::IDENTIFIER) and (grammar.keywords.count(begin->literal) == 0) );
+			return expect( (token_it->type == Token::IDENTIFIER) and (grammar.keywords.count(token_it->literal) == 0) );
 
 		if ( target == "CONSTANT" ) 
-			return expect(begin->type == Token::NUMERIC);
+			return expect(token_it->type == Token::NUMERIC);
 		
 		if ( target == "STRING_LITERAL" ) 
-			return expect(begin->type == Token::STRING_LITERAL);
+			return expect(token_it->type == Token::STRING_LITERAL);
 			
 	} 
+
 	
-	// for each target symbol, there may be several recipes possible, we will accept only the longest.
+	// for each target symbol, there may be several recipes possible.
 	std::vector<SyntaxTree> all_ast;
 
-	// for each symbol, we tacke first the recipes that aren't front-recursive
+	// register our current target.
+	parent_targets_without_consuming_tokens.push_back(target);
+
+	// for each symbol, we tackle first the recipes that aren't front-recursive
 	for (auto &recipe : grammar.symbols[target].recipes) {
-		
-		// skip front-recursive recipes.
+
+		// skip pure front-recursive recipes.
 		{
-			bool found = false;
-			for (auto &p : parent_targets)
-				if (recipe.front() == p)
-					found = true;
-			if (found) continue;
+			bool is_front_recursive_recipe = (recipe.front() == target);
+			if (is_front_recursive_recipe) continue;
 		}
-		
+
 		std::vector<SyntaxTree> ast;
-		ast.emplace_back(begin, target);
-		ast.back().end = begin;
+		ast.emplace_back(token_it, target);
+		ast.back().last = token_it;
 
-		parent_targets.push_back(target);
-		for (auto &component : recipe) {
+		for (auto component : recipe) {
 
-			
 			std::vector<SyntaxTree> tentative_ast;
-
+			
 			for (auto &a : ast) {
 
-				for (auto &c :parse(a.end, end, component, debug, parent_targets)) {
+				
+				bool is_first = ( a.last == token_it );
+				
+				auto &&t = (is_first?parent_targets_without_consuming_tokens:std::vector<std::string>()); 
+
+				for (auto &c : parse(a.last, last_token, component, debug, t)) {
 				
 					auto a2 = a;
-					a2.end = c.end;
+					a2.last = c.last;
 					if (component.front() == '!' and component.size()>1) {
 						a2.symbol = c.symbol.substr(1);
 					} else if (c.symbol != "ERASED") {
@@ -459,9 +484,8 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 					tentative_ast.push_back(std::move(a2));
 				}
 			}
-			
+
 			ast = std::move(tentative_ast);
-			if (&component == &recipe.front()) parent_targets.pop_back();
 		}
 		
 		for (auto &a : ast)
@@ -469,7 +493,7 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 	}
 
 	// then, for each tentative ast, we tacke the recipes that are front-recursive
-	/*{
+	{
 		std::vector<SyntaxTree> all_expanded_ast;
 		
 		while (not all_ast.empty()) {
@@ -485,8 +509,8 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 				if (recipe.front() != target) continue;
 				
 				std::vector<SyntaxTree> ast;
-				ast.emplace_back(begin, target);
-				ast.back().end = begin;
+				ast.emplace_back(token_it, target);
+				ast.back().last = token_it;
 				
 				for (auto component : recipe) {
 					
@@ -494,16 +518,16 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 
 					for (auto &a : ast) {
 						
-						if (a.end == begin) {
+						if (a.last == token_it) {
 						
 							tentative_ast.push_back(ast_to_expand);
 							continue;
 						}
 
-						for (auto &c : parse(a.end, end, component, debug)) {
+						for (auto &c : parse(a.last, last_token, component, debug)) {
 						
 							auto a2 = a;
-							a2.end = c.end;
+							a2.last = c.last;
 							if (component.front() == '!' and component.size()>1) {
 								a2.symbol = c.symbol.substr(1);
 							} else if (c.symbol != "ERASED") {
@@ -522,7 +546,7 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 		}
 		
 		all_ast = all_expanded_ast;
-	}*/
+	}
 
 	if (grammar.reducible_symbols.count(target)) {
 		for (auto &ast : all_ast) {
@@ -534,9 +558,9 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 				ast.symbol = "ERASED";
 			}
 			if (ast.children.size() == 1) {
-				auto e = ast.end;
+				auto e = ast.last;
 				ast = std::move(ast.children.front());
-				ast.end = e;
+				ast.last = e;
 			}
 		}
 	}
@@ -544,7 +568,7 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI begin, SyntaxTree::TI end, s
 	return all_ast;
 }
 
-SyntaxTree::SyntaxTree(TI _begin, std::string _symbol) : begin(_begin), end(++ _begin), symbol(_symbol) {}
+SyntaxTree::SyntaxTree(TI _first, std::string _symbol) : first(_first), last(++ _first), symbol(_symbol) {}
 
 
 SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
@@ -553,9 +577,7 @@ SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
 	
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
-	std::vector<std::string> parent_targets;
-	
-	auto all_ast = parse(tokens.begin(), tokens.end(), root, debug, parent_targets);
+	auto all_ast = parse(tokens.begin(), tokens.end(), root, debug);
 	
 	if (all_ast.empty()) {
 
@@ -578,14 +600,14 @@ SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
 	}
 	
 	{
-		auto last_token = all_ast.front().end;
-		for (auto &ast : all_ast) if (ast.end>last_token) last_token = ast.end;
+		auto last_token = all_ast.front().last;
+		for (auto &ast : all_ast) if (ast.last>last_token) last_token = ast.last;
 
 		if (last_token != tokens.end()) 
-			Log(ERROR) << "Not all tokens used. Last token in: \n " << last_token->to_line_string();
+			Log(ERROR) << "Not all tokens used. Last token in: \n "  << all_ast.back().to_string() << "\n" << last_token->to_line_string();
 
 		int count = 0;
-		for (auto &ast : all_ast) if (ast.end == last_token) count++;
+		for (auto &ast : all_ast) if (ast.last == last_token) count++;
 		
 
 		if (count!=1) {
@@ -595,7 +617,7 @@ SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
 			Log(ERROR) << count << " ambiguous AST";
 		}
 
-		for (auto &ast : all_ast) if (ast.end == last_token) *this = ast;
+		for (auto &ast : all_ast) if (ast.last == last_token) *this = ast;
 	}
 }
 	

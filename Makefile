@@ -7,7 +7,7 @@ CFLAGS += -Werror
 
 CFLAGS += -I./src
 
-CFLAGS += -O0 -g
+CFLAGS += -O3 -g
 
 CFLAGS += -std=gnu++2a
 
