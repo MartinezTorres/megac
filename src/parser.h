@@ -15,7 +15,7 @@ struct SyntaxTree {
 	
 	SyntaxTree(TI begin, std::string symbol);
 
-	SyntaxTree(SourceFile &file, std::string root = "translation_unit");
+	SyntaxTree(SourceFile &file, std::string root = "start");
 	
 	std::string to_string(std::string prefix = "") const;
 };

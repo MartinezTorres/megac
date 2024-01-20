@@ -187,14 +187,16 @@ type_name
 	| uint16
 	| int16
 	| array: type_name "[" [CONSTANT] "]"
-	| !struct "{" [translation_unit] "}"
-	| !union "{" [translation_unit] "}"
-	| !function [ [type_name] ( [parameter_list] ) ]
+	| struct_type: "struct" translation_unit_scoped
+	| union_type: "union2 translation_unit_scoped
+	| function_type: "function" "[" type_name parameter_list_scoped "]"
 	| bit_field: type_name : CONSTANT
 	;
 
 ########################################################################
 # STATEMENT ;
+
+statement_list_scoped : "{" [statement_list] "}" ;
 
 "statement_list"
 	: statement
@@ -220,6 +222,8 @@ statement
 ########################################################################
 # FUNCTION DEFINITION ;
 
+parameter_list_scoped : "(" [parameter_list] ")" ;
+
 parameter_list
 	: type_name
 	| type_name IDENTIFIER
@@ -227,20 +231,25 @@ parameter_list
 	| parameter_list "," type_name IDENTIFIER
 	;
 
+function_name : IDENTIFIER ;
+
 function_definition
-	: type_name IDENTIFIER "(" [parameter_list] ")" "{" [statement_list] "}"
+	: type_name function_name parameter_list_scoped statement_list_scoped
 	;
 
 ########################################################################
 # TRANSLATION UNIT ;
 
-translation_unit
+translation_unit_scoped : "{" [translation_unit] "}" ;
+
+"translation_unit"
 	: function_definition
 	| declaration
 	| translation_unit function_definition
 	| translation_unit declaration
 	;
 
+"start" : translation_unit ;
 
 )GRAMMAR"		
 		
@@ -477,6 +486,8 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI las
 					a2.last = c.last;
 					if (component.front() == '!' and component.size()>1) {
 						a2.symbol = c.symbol.substr(1);
+						for (auto &c2 : c.children) 
+							a2.children.push_back( std::move(c2) );
 					} else if (c.symbol != "ERASED") {
 						a2.children.push_back( std::move(c) );
 					}
@@ -530,6 +541,8 @@ static std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI las
 							a2.last = c.last;
 							if (component.front() == '!' and component.size()>1) {
 								a2.symbol = c.symbol.substr(1);
+								for (auto &c2 : c.children) 
+									a2.children.push_back( std::move(c2) );
 							} else if (c.symbol != "ERASED") {
 								a2.children.push_back( std::move(c) );
 							}
