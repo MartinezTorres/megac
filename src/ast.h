@@ -12,7 +12,7 @@ struct SyntaxTree {
 	
 	SyntaxTree(TI _first, std::string _symbol) : first(_first), last(++ _first), symbol(_symbol) {}
 
-	SyntaxTree(SourceFile &file, std::string root = "start");
+	SyntaxTree(SourceFile &file);
 	
 	std::string to_string(std::string prefix = "") const;
 };

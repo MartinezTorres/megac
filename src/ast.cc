@@ -17,13 +17,13 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 	return oss.str();
 }
 
-SyntaxTree::SyntaxTree(SourceFile &file, std::string root) {
+SyntaxTree::SyntaxTree(SourceFile &file) {
 
 	auto &tokens = tokenize(file);
 	
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
-	auto all_ast = parse(tokens.begin(), tokens.end(), root, debug);
+	auto all_ast = parse(tokens.begin(), tokens.end(), "start", debug);
 	
 	if (all_ast.empty()) {
 
