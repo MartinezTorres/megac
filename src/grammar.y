@@ -5,7 +5,7 @@
 	// Terms between "double quotes" won't be stored as children.
 	// Based on: https://www.lysator.liu.se/c/ANSI-C-grammar-y.html
 
-# EXPRESSIONS ;
+	;
 
 RESERVED_KEYWORDS : int | goto | alignas | alignof  | and | and_eq | asm | atomic_cancel  | atomic_commit  | atomic_noexcept  | auto     | bitand | bitor | bool | break | case | catch | char | char8_t  | char16_t  | char32_t  | class  | compl | concept  | const | consteval  | constexpr  | constinit  | const_cast | continue | co_await  | co_return  | co_yield  | decltype  | default  | delete  | do | double | dynamic_cast | else | enum  | explicit | export   | extern  | false | float | for  | friend | goto | if   | inline  | int | long | mutable  | namespace | new | noexcept  | not | not_eq | nullptr  | operator  | or | or_eq | private  | protected | public | reflexpr  | register  | reinterpret_cast | requires  | return | short | signed | sizeof  | static | static_assert  | static_cast | struct  | switch | synchronized  | template | this  | thread_local  | throw | true | try | typedef | typeid | typename | union | unsigned | using  | virtual | void | volatile | wchar_t | while | xor | xor_eq ;
 
@@ -15,8 +15,13 @@ IDENTIFIER : IDENTIFIER ;
 CONSTANT : CONSTANT ;
 STRING_LITERAL : STRING_LITERAL ;
 
+namespace_identifier
+	: IDENTIFIER ::
+	| namespace_identifier IDENTIFIER :: 
+	;
+
 "primary_expression"
-	: IDENTIFIER
+	: [namespace_identifier] IDENTIFIER
 	| CONSTANT
 	| STRING_LITERAL
 	| "(" expression ")"
@@ -154,7 +159,7 @@ unary_operator : !& | !+ | !- | !~ | !! ;
 	;
 
 type_name
-	: IDENTIFIER
+	: [namespace_identifier] IDENTIFIER
 	| void
 	| uint8
 	| int8
@@ -205,7 +210,7 @@ parameter_list
 	| parameter_list "," type_name IDENTIFIER
 	;
 
-function_name : IDENTIFIER ;
+function_name : [namespace_identifier] IDENTIFIER ;
 
 function_definition
 	: type_name function_name parameter_list_scoped statement_list_scoped

@@ -6,15 +6,18 @@
 #include <vector>
 #include <iomanip>
 
-#include <log.h>
+#include "log.h"
 
 struct Token;
+struct SyntaxTree;
 
 struct SourceFile {
 	
 	std::string path;
 	std::shared_ptr<boost::iostreams::mapped_file_source> source;
 	std::shared_ptr<std::vector<Token>> tokens;
+	std::shared_ptr<SyntaxTree> syntax_tree;
+	
 	
 	SourceFile(std::string _path) : path(_path) {
 			

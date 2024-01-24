@@ -1,8 +1,6 @@
-#include <tokenizer.h>
-#include <parser.h>
-#include <file.h>
-
-#include <log.h>
+#include "parser.h"
+#include "file.h"
+#include "generator.h"
 
 #include <boost/program_options.hpp>
 
@@ -37,6 +35,12 @@ int main(int argc, char *argv[]) {
 	SourceFile &source_file = SourceFile::Manager::get(source_file_name);
 
 	SyntaxTree main_syntax_tree( source_file );
+	
+	generate_code(main_syntax_tree);
+	
+	
+	
+	
 	
 	std::cout << main_syntax_tree.to_string();
 	

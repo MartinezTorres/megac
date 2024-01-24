@@ -264,7 +264,7 @@ namespace TokenParsers {
 	static std::optional<Token> punctuator(  NormalizedSourcePtr p, bool has_space, bool start_of_line ) { 
 		
 		
-		for (auto c : { "<<=", ">>=", "...", ":=", "==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=", "++", "--", "%=", "&=", "|=", "^=", "&&", "||", "<<", ">>", "##" } ) {
+		for (auto c : { "<<=", ">>=", "...", ":=", "==", "!=", "<=", ">=", "->", "+=", "-=", "*=", "/=", "++", "--", "%=", "&=", "|=", "^=", "&&", "||", "<<", ">>", "##", "::" } ) {
 			
 			if (p.starts_with(c)) {
 				

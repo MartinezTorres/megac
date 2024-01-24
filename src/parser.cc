@@ -30,17 +30,24 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 
 	// tackle leaf nodes: which can be a keyword, an identifier, a numeric constant, or a string literal.
 	{
-		auto expect = [&](bool condition) -> std::vector<SyntaxTree> {
-			if (not condition or token_it == last_token) {
-				if (debug.last_error_token < token_it) {
-					debug.last_error_token = token_it;
-					debug.expected_targets.clear();
-				}
-				if (debug.last_error_token == token_it) {
-					debug.expected_targets.push_back(target);
-				}
-				return std::vector<SyntaxTree>();
+
+		auto label_error = [&](){
+			if (debug.last_error_token < token_it) {
+				debug.last_error_token = token_it;
+				debug.expected_targets.clear();
 			}
+			if (debug.last_error_token == token_it) {
+				debug.expected_targets.push_back(target);
+			}
+			return std::vector<SyntaxTree>();
+		};
+		
+		if (token_it == last_token) 
+			return label_error();
+
+		auto expect = [&](bool condition) -> std::vector<SyntaxTree> {
+			if (not condition) 
+				return label_error();
 			if (target.front()=='"') return std::vector<SyntaxTree>(1, SyntaxTree(token_it, "ERASED"));
 			return std::vector<SyntaxTree>(1, SyntaxTree(token_it, target));
 		};

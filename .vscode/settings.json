@@ -1,0 +1,9 @@
+{
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/home/manel/repos/manel/msx/megac",
+            "binaryPath": "/home/manel/repos/manel/msx/megac/bin/megac",
+            "binaryArgs": ["-l", "-3", "samples/hello_world.cc"],
+        }
+    ]
+}

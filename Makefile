@@ -23,7 +23,7 @@ all: ./bin/megac
 
 .PHONY: clean
 
-./tmp/%.o: ./src/%.cc ./src/*.h
+./tmp/%.o: ./src/%.cc ./src/%.* ./src/*.h
 	@echo "CREATING $@"
 	@mkdir -p $(@D)
 	@$(CXX) -c -o $@ $< $(CFLAGS)
