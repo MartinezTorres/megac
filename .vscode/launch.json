@@ -2,8 +2,8 @@
   "name": "C++ Launch",
   "type": "cppdbg",
   "request": "launch",
-  "program": "${workspaceFolder}/bin/megac",
-  "args": ["-l", "-3", "samples/hello_world.cc"],
+  "program": "time",
+  "args": ["${workspaceFolder}/bin/megac", "-l", "-3", "samples/hello_world.cc"],
   "environment": [{ "name": "config", "value": "Debug" }],
   "cwd": "${workspaceFolder}"
 }

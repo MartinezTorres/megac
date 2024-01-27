@@ -1,16 +1,20 @@
 #pragma once
 #include <tokenizer.h>
+#include <grammar.h>
 
 struct SyntaxTree {
 
 	using TI = std::vector<Token>::const_iterator;
 	
 	TI first, last;
-	std::string symbol;
+
+	Grammar::Symbol::Component component;
 	
 	std::vector<SyntaxTree> children;
+
+	bool is_empty = false;
 	
-	SyntaxTree(TI _first, std::string _symbol) : first(_first), last(++ _first), symbol(_symbol) {}
+	SyntaxTree(TI _first, Grammar::Symbol::Component _component) : first(_first), last(++ _first), component(_component) {}
 
 	SyntaxTree(SourceFile &file);
 	

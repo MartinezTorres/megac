@@ -6,4 +6,4 @@ struct ParseDebug {
 	std::vector<std::string> expected_targets;
 };
 
-std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, std::string target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens = std::vector<std::string>());
+std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, Grammar::Symbol::Component target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens = std::vector<std::string>());

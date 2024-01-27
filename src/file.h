@@ -23,6 +23,8 @@ struct SourceFile {
 			
 		try {
 
+			Log(INFO) << "Opening file: " << path;
+
 			source = std::make_shared<boost::iostreams::mapped_file_source>(path);
 			
 		} catch (std::exception const&  e) {

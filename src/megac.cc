@@ -36,13 +36,10 @@ int main(int argc, char *argv[]) {
 
 	SyntaxTree main_syntax_tree( source_file );
 	
+	std::cout << main_syntax_tree.to_string();
+	
 	generate_code(main_syntax_tree);
 	
-	
-	
-	
-	
-	std::cout << main_syntax_tree.to_string();
 	
 	
 /*	std::vector<Token> = tokenize(

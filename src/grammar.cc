@@ -5,37 +5,74 @@
 extern char ext_grammar[];
 
 Grammar::Grammar() {	
-	
+
 	std::istringstream iss(ext_grammar);
 	std::string s;
 
-	// Let's make a list of found symbols first
+	// Parse the first section. Fill reserved_keyword lists and magic token lists. 
 	while (iss >> s) {
+
+		if (s == "//") { 
+			// skip comments
+			std::getline(iss, s);
+
+		} else if (s == "%%") {
+			// end of first section.
+			break;
 		
-		if (s.front()=='#') { while (iss >> s) if (s == ";") break; iss >> s; }
-		
-		symbols[s];
-		
-		while (iss >> s) if (s == ";") break;
+		} else if (s == "%reserved_keywords") {
+			// add reserved keywords
+			while (iss >> s) {
+				if (s == ";") break;
+				reserved_keywords.insert(s);
+			}
+		} else if (s == "%token") {
+			// add magic tokens
+			while (iss >> s) {
+				if (s == ";") break;
+				magic_tokens.insert(s);
+			}
+		} else {
+			Log(ERROR) << "Unknown directive in first grammar section: " << s;
+		}
 	}
 
-	iss = std::istringstream(ext_grammar);
+	// Parse second section: symbol definitions and their recipes.
 	while (iss >> s) {
 		
-		if (s.front()=='#') { while (iss >> s) if (s == ";") break; iss >> s; }
-		
-		if (s.front() == '"') {
-			s = s.substr(1,s.size()-2);
-			reducible_symbols.insert(s);
+		if (s == "//") { 
+			// skip comments
+			std::getline(iss, s);
+			continue;
+
+		} 
+
+		bool is_weak = false;
+		while (s.front()=='%') {
+			if (s == "%weak") {
+				is_weak = true;
+			} else {
+				Log(ERROR) << "Unknown directive in second grammar section: " << s;
+			}
+			if (not (iss >> s) ) return;
 		}
 
 		Symbol &symbol = symbols[s];
 		symbol.name = s;
+		symbol.is_weak = is_weak;
+		is_weak = false;
+
+		// Consume ':'
+		{
+			if (not (iss >> s) ) return;
+			Assert(s==":") << ": expected, got " << s;
+		}
 		
-		iss >> s;
-		Assert(s==":") << ": expected, got " << s;
-		
-		std::vector<std::vector<std::string>> recipes;
+		std::vector<std::vector<Symbol::Component>> recipes;
+		std::string subsymbol_name;
+		bool force_root = false;
+		bool must_keep = false;
+		bool is_optional = false;
 		while (iss >> s) {
 			
 			if (s=="|" or s==";") { // recipe is finished.
@@ -48,16 +85,19 @@ Grammar::Grammar() {
 					}
 					recipes.clear();
 				} else {
+
+					Grammar::Symbol::Component phony_component;
+					phony_component = Grammar::Symbol::Component::Symbol(symbol.name + "_sub_" + subsymbol_name);
 					
-					Log(ERROR_NOTHROW) << "Subsymbol: " << subsymbol_name;
-					symbol.recipes.emplace_back(1,subsymbol_name);
+					symbol.recipes.emplace_back(1,phony_component);
 					
-					Symbol &subsymbol = symbols[subsymbol_name];
+					Symbol &subsymbol = symbols[phony_component.str()];
 					subsymbol.name = subsymbol_name;
+					subsymbol.is_weak = false;
 
 					for (auto &recipe : recipes) {
 						Assert(not recipe.empty()) << " found an empty recipe in symbol " << subsymbol_name;
-						Log(ERROR_NOTHROW) << "Subsymbol: " << subsymbol_name << " recipe: " << ([&](){std::ostringstream oss; for (auto &v:recipe) oss<<v<<" "; return oss.str();}());
+						//Log(ERROR_NOTHROW) << "Subsymbol: " << subsymbol_name << " recipe: " << ([&](){std::ostringstream oss; for (auto &v:recipe) oss<<v<<" "; return oss.str();}());
 						subsymbol.recipes.push_back(recipe);
 					}
 					recipes.clear();
@@ -66,52 +106,59 @@ Grammar::Grammar() {
 				}
 				if (s==";") break;
 				
-			} else if (s.size()>1 and s.back() == ':') {
+			} else if (s == "%label") {
+
+				if (not (iss >> s) ) Log(ERROR) << " expecting <name> after %label";
 			
-				s.pop_back();
 				subsymbol_name = s;
-				symbols[s];
 				 
+			} else if (s == "%root") {
+
+				force_root = true;
+
+			} else if (s == "%keep") {
+
+				must_keep = true;
+			
+			} else if (s == "%opt") {
+
+				is_optional = true;
+			
 			} else {
-				
-				Assert(not s.empty()) << " broken grammar";
-
-				bool optional = false;
-
-				if (s.front() == '\'') {
-					s = s.substr(1,s.size()-2);
-				}
-
-				if (s.front() == '[' and s.back() == ']') {
-					s = s.substr(1,s.size()-2);
-					optional = true;
-				}
-
-				
 				
 				if (recipes.empty()) recipes.emplace_back();
 
-				if (optional) {
+				Symbol::Component component;
+
+				if (s.front() == '\'') {
+					component = Grammar::Symbol::Component::Token(s.substr(1,s.size()-2));
+				} else {
+					component = Grammar::Symbol::Component::Symbol(s);
+				}
+				component.force_root = force_root;
+				force_root = false;
+
+				component.must_keep = must_keep;
+				must_keep = false;
+
+				if (is_optional) {
 					
 					auto new_recipes = recipes;
 					for (auto &recipe : new_recipes) {
 
-						recipe.push_back(s);
+						recipe.push_back(component);
 						recipes.push_back(recipe);
 					}
 				} else {
 					for (auto &recipe : recipes) {
-						recipe.push_back(s);
+						recipe.push_back(component);
 					}
 				}
 
-				if (symbols.count(s) == 0)
-					keywords.insert(s);
+				is_optional = false;
 			}
 		}
 	}
-	Log(DEBUG) << " Grammar found " << keywords.size() << " keywords.";
-	Log(EXTRA) << [&](){ std::ostringstream oss; for (auto &keyword : keywords) oss << keyword << " "; return oss.str(); }(); 
 }
 
 asm("ext_grammar:    .incbin \"grammar.y\" \n .balign 1 \n .byte 0x00\n");

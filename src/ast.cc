@@ -7,9 +7,19 @@
 std::string SyntaxTree::to_string(std::string prefix) const {
 	
 	std::ostringstream oss;
-	if (symbol == "IDENTIFIER") { oss << prefix << "- " << symbol << " " << first->to_string() << std::endl;
-	} else { oss << prefix << "- " << symbol << std::endl;
+	if (component.is_symbol()) {
+		oss << prefix << "- " << component.str();
+		if (component.str() == "IDENTIFIER") {
+			oss << ": " << first->to_string();
+		}
+		if (component.str() == "STRING_LITERAL" and first->to_string().size()<40) {
+			oss << ": " << first->to_string();
+		}
+	} else { // component.is_token()
+		oss << prefix << "- TOKEN: " << component.str();
 	}
+	oss << std::endl;
+
 	for (auto &c : children) {
 		oss << prefix + "  |" << std::endl;
 		oss << c.to_string(prefix + (&c == &children.back()?"   ":"  |"));
@@ -23,7 +33,8 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 	
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
-	auto all_ast = parse(tokens.begin(), tokens.end(), "start", debug);
+	Grammar::Symbol::Component start_symbol; start_symbol = Grammar::Symbol::Component::Symbol("start");
+	auto all_ast = parse(tokens.begin(), tokens.end(), start_symbol, debug);
 	
 	if (all_ast.empty()) {
 

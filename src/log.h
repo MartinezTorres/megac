@@ -100,5 +100,15 @@ private:
 
 struct Assert : Log { Assert(bool condition) : Log(condition ? DEBUG : ERROR) {} };
 
+struct Str {
+
+	std::ostringstream oss;
+
+	template<typename T>
+	Str &operator<<(const T &data) { oss << data;  return *this; }
+
+	operator const std::string() const { return oss.str(); }
+};
+
 	
 

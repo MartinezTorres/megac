@@ -2,14 +2,9 @@
 #include "grammar.h"
 #include "log.h"
 
-
 static Grammar grammar;
 
-std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, std::string target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens) {
-
-	// Quick workaround, kill deep chains
-	//if (parent_targets_without_consuming_tokens.size()>50) 
-	//	return std::vector<SyntaxTree>();
+std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, Grammar::Symbol::Component target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens) {
 	
 	// This filters out non-trivially front-recursive recipes. I haven't slept in a week while trying and failing to find a general solution for this problem. Randomly, some kind of programming deity just put me this idea on my mind. It seems to work. I have no idea why.
 	if (parent_targets_without_consuming_tokens.size()>2) {
@@ -26,51 +21,46 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 		}
 	}
 	
-
-
 	// tackle leaf nodes: which can be a keyword, an identifier, a numeric constant, or a string literal.
 	{
-
-		auto label_error = [&](){
-			if (debug.last_error_token < token_it) {
-				debug.last_error_token = token_it;
-				debug.expected_targets.clear();
-			}
-			if (debug.last_error_token == token_it) {
-				debug.expected_targets.push_back(target);
-			}
-			return std::vector<SyntaxTree>();
-		};
-		
-		if (token_it == last_token) 
-			return label_error();
-
 		auto expect = [&](bool condition) -> std::vector<SyntaxTree> {
-			if (not condition) 
-				return label_error();
-			if (target.front()=='"') return std::vector<SyntaxTree>(1, SyntaxTree(token_it, "ERASED"));
-			return std::vector<SyntaxTree>(1, SyntaxTree(token_it, target));
+			if (not condition) {
+
+				if (debug.last_error_token < token_it) {
+					debug.last_error_token = token_it;
+					debug.expected_targets.clear();
+				}
+				if (debug.last_error_token == token_it) {
+					debug.expected_targets.push_back(target.str());
+				}
+				return std::vector<SyntaxTree>();				
+			}
+			
+			SyntaxTree ret(token_it, target);
+
+			if (target.is_token() and not target.must_keep)
+				ret.is_empty = true;
+
+			return std::vector<SyntaxTree>(1, ret);
 		};
 
-		if (grammar.symbols.count(target) == 0 and target.front() == '"') 
-			return expect( (token_it->type != Token::STRING_LITERAL) and ('"' + token_it->literal + '"' == target) );
-
-		if (grammar.symbols.count(target) == 0 and target.front() == '!') 
-			return expect( (token_it->type != Token::STRING_LITERAL) and ('!' + token_it->literal == target) );
-
-		if (grammar.symbols.count(target) == 0) 
-			return expect( (token_it->type != Token::STRING_LITERAL) and (token_it->literal == target) );
+		// Take care if we are past the final token.
+		if (token_it == last_token) 
+			return expect( false );
 
 		// Also there are some leaf nodes harcoded in the symbol table
-		if ( target == "IDENTIFIER" ) 
-			return expect( (token_it->type == Token::IDENTIFIER) and (grammar.keywords.count(token_it->literal) == 0) );
+		if ( target.is_symbol() and target.str() == "IDENTIFIER" ) 
+			return expect( (token_it->type == Token::IDENTIFIER) and (grammar.reserved_keywords.count(token_it->literal) == 0) );
 
-		if ( target == "CONSTANT" ) 
+		if ( target.is_symbol() and target.str() == "CONSTANT" ) 
 			return expect(token_it->type == Token::NUMERIC);
 		
-		if ( target == "STRING_LITERAL" ) 
+		if ( target.is_symbol() and target.str() == "STRING_LITERAL" ) 
 			return expect(token_it->type == Token::STRING_LITERAL);
-			
+
+		if ( target.is_token() ) 
+			return expect( (token_it->type != Token::STRING_LITERAL) and (token_it->literal == target.str()) );
+
 	} 
 
 	
@@ -78,14 +68,14 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 	std::vector<SyntaxTree> all_ast;
 
 	// register our current target.
-	parent_targets_without_consuming_tokens.push_back(target);
+	parent_targets_without_consuming_tokens.push_back(target.str());
 
 	// for each symbol, we tackle first the recipes that aren't front-recursive
-	for (auto &recipe : grammar.symbols[target].recipes) {
+	for (auto &recipe : grammar.symbols[target.str()].recipes) {
 
 		// skip pure front-recursive recipes.
 		{
-			bool is_front_recursive_recipe = (recipe.front() == target);
+			bool is_front_recursive_recipe = (recipe.front().str() == target.str());
 			if (is_front_recursive_recipe) continue;
 		}
 
@@ -108,11 +98,11 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 				
 					auto a2 = a;
 					a2.last = c.last;
-					if (component.front() == '!' and component.size()>1) {
-						a2.symbol = c.symbol.substr(1);
+					if (component.force_root) {
+						a2.component = Grammar::Symbol::Component::Symbol( c.component.str() );
 						for (auto &c2 : c.children) 
 							a2.children.push_back( std::move(c2) );
-					} else if (c.symbol != "ERASED") {
+					} else if (c.is_empty == false) {
 						a2.children.push_back( std::move(c) );
 					}
 
@@ -138,10 +128,10 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 
 			all_expanded_ast.push_back(ast_to_expand);
 			
-			for (auto &recipe : grammar.symbols[target].recipes) {
+			for (auto &recipe : grammar.symbols[target.str()].recipes) {
 								
 				// skip non front-recursive recipes.
-				if (recipe.front() != target) continue;
+				if (recipe.front().str() != target.str()) continue;
 				
 				std::vector<SyntaxTree> ast;
 				ast.emplace_back(token_it, target);
@@ -163,11 +153,11 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 						
 							auto a2 = a;
 							a2.last = c.last;
-							if (component.front() == '!' and component.size()>1) {
-								a2.symbol = c.symbol.substr(1);
+							if (component.force_root) {
+								a2.component = Grammar::Symbol::Component::Symbol( c.component.str() );
 								for (auto &c2 : c.children) 
 									a2.children.push_back( std::move(c2) );
-							} else if (c.symbol != "ERASED") {
+							} else if (c.is_empty == false) {
 								a2.children.push_back( std::move(c) );
 							}
 							tentative_ast.push_back(std::move(a2));
@@ -185,14 +175,13 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 		all_ast = all_expanded_ast;
 	}
 
-	if (grammar.reducible_symbols.count(target)) {
+	if (grammar.symbols[target.str()].is_weak) {
 		for (auto &ast : all_ast) {
-			if (ast.symbol != target) {
-				Log(DEBUG) << ast.symbol << " " << target;
+			if (ast.component.str() != target.str()) {
 				continue;
 			}
 			if (ast.children.empty()) {
-				ast.symbol = "ERASED";
+				ast.is_empty = true;
 			}
 			if (ast.children.size() == 1) {
 				auto e = ast.last;
