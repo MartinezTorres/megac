@@ -22,7 +22,11 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 
 	for (auto &c : children) {
 		oss << prefix + "  |" << std::endl;
-		oss << c.to_string(prefix + (&c == &children.back()?"   ":"  |"));
+		if (c) {
+			oss << c->to_string(prefix + (&c == &children.back()?"   ":"  |"));
+		} else {
+			oss << "EMPTY CHILD";
+		}
 	}
 	return oss.str();
 }
@@ -34,7 +38,7 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
 	Grammar::Symbol::Component start_symbol; start_symbol = Grammar::Symbol::Component::Symbol("start");
-	auto all_ast = parse(tokens.begin(), tokens.end(), start_symbol, debug);
+	auto all_ast = parse(tokens.begin(), tokens.end(), start_symbol, debug );
 	
 	if (all_ast.empty()) {
 
@@ -57,24 +61,24 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 	}
 	
 	{
-		auto last_token = all_ast.front().last;
-		for (auto &ast : all_ast) if (ast.last>last_token) last_token = ast.last;
+		auto last_token = all_ast.front()->last;
+		for (auto &ast : all_ast) if (ast->last>last_token) last_token = ast->last;
 
 		if (last_token != tokens.end()) 
-			Log(ERROR) << "Not all tokens used. Last token in: \n "  << all_ast.back().to_string() << "\n" << last_token->to_line_string();
+			Log(ERROR) << "Not all tokens used. Last token in: \n "  << all_ast.back()->to_string() << "\n" << last_token->to_line_string();
 
 		int count = 0;
-		for (auto &ast : all_ast) if (ast.last == last_token) count++;
+		for (auto &ast : all_ast) if (ast->last == last_token) count++;
 		
 
 		if (count!=1) {
 			for (auto &ast : all_ast) {
-				std::cout << ast.to_string();
+				std::cout << ast->to_string();
 			}
 			Log(ERROR) << count << " ambiguous AST";
 		}
 
-		for (auto &ast : all_ast) if (ast.last == last_token) *this = ast;
+		for (auto &ast : all_ast) if (ast->last == last_token) *this = *ast;
 	}
 }
 	

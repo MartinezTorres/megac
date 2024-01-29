@@ -34,9 +34,9 @@ int main(int argc, char *argv[]) {
 
 	SourceFile &source_file = SourceFile::Manager::get(source_file_name);
 
-	SyntaxTree main_syntax_tree( source_file );
+	SyntaxTree::SP main_syntax_tree = std::make_shared<SyntaxTree>( source_file );
 	
-	std::cout << main_syntax_tree.to_string();
+	std::cout << main_syntax_tree->to_string();
 	
 	generate_code(main_syntax_tree);
 	

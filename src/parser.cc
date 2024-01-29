@@ -4,7 +4,7 @@
 
 static Grammar grammar;
 
-std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, Grammar::Symbol::Component target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens) {
+std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, Grammar::Symbol::Component target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens, SyntaxTree::SP parent) {
 	
 	// This filters out non-trivially front-recursive recipes. I haven't slept in a week while trying and failing to find a general solution for this problem. Randomly, some kind of programming deity just put me this idea on my mind. It seems to work. I have no idea why.
 	if (parent_targets_without_consuming_tokens.size()>2) {
@@ -17,13 +17,13 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 		if (parent_is_on_the_list) {
 			for (size_t n = 0; n < N-1; n++)
 				if (parent_targets_without_consuming_tokens[n] == parent_targets_without_consuming_tokens[N-1])
-					return std::vector<SyntaxTree>();
+					return std::vector<SyntaxTree::SP>();
 		}
 	}
 	
 	// tackle leaf nodes: which can be a keyword, an identifier, a numeric constant, or a string literal.
 	{
-		auto expect = [&](bool condition) -> std::vector<SyntaxTree> {
+		auto expect = [&](bool condition) -> std::vector<SyntaxTree::SP> {
 			if (not condition) {
 
 				if (debug.last_error_token < token_it) {
@@ -33,15 +33,15 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 				if (debug.last_error_token == token_it) {
 					debug.expected_targets.push_back(target.str());
 				}
-				return std::vector<SyntaxTree>();				
+				return std::vector<SyntaxTree::SP>();				
 			}
 			
-			SyntaxTree ret(token_it, target);
+			SyntaxTree::SP ret = std::make_shared<SyntaxTree>(token_it, target, parent);
 
 			if (target.is_token() and not target.must_keep)
-				ret.is_empty = true;
+				ret->is_empty = true;
 
-			return std::vector<SyntaxTree>(1, ret);
+			return std::vector<SyntaxTree::SP>(1, ret);
 		};
 
 		// Take care if we are past the final token.
@@ -65,7 +65,7 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 
 	
 	// for each target symbol, there may be several recipes possible.
-	std::vector<SyntaxTree> all_ast;
+	std::vector<SyntaxTree::SP> all_ast;
 
 	// register our current target.
 	parent_targets_without_consuming_tokens.push_back(target.str());
@@ -79,51 +79,57 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 			if (is_front_recursive_recipe) continue;
 		}
 
-		std::vector<SyntaxTree> ast;
-		ast.emplace_back(token_it, target);
-		ast.back().last = token_it;
+		std::vector<SyntaxTree::SP> ast;
+		ast.push_back(std::make_shared<SyntaxTree>(token_it, target, parent));
+		ast.back()->last = token_it;
 
 		for (auto component : recipe) {
 
-			std::vector<SyntaxTree> tentative_ast;
+			std::vector<SyntaxTree::SP> tentative_ast;
 			
 			for (auto &a : ast) {
 
 				
-				bool is_first = ( a.last == token_it );
+				bool is_first = ( a->last == token_it );
 				
 				auto &&t = (is_first?parent_targets_without_consuming_tokens:std::vector<std::string>()); 
 
-				for (auto &c : parse(a.last, last_token, component, debug, t)) {
+				for (auto &c : parse(a->last, last_token, component, debug, t)) {
 				
-					auto a2 = a;
-					a2.last = c.last;
+					auto a2 = std::make_shared<SyntaxTree>(*a);
+					a2->last = c->last;
+					for (auto &a2c : a2->children)
+						a2c->parent = a2;
+
 					if (component.force_root) {
-						a2.component = Grammar::Symbol::Component::Symbol( c.component.str() );
-						for (auto &c2 : c.children) 
-							a2.children.push_back( std::move(c2) );
-					} else if (c.is_empty == false) {
-						a2.children.push_back( std::move(c) );
+						a2->component = Grammar::Symbol::Component::Symbol( c->component.str() );
+						for (auto &c2 : c->children) {
+							c2->parent = a2;
+							a2->children.push_back( c2 ) ;
+						}
+					} else if (c->is_empty == false) {
+						c -> parent = a2;
+						a2->children.push_back( c );
 					}
 
-					tentative_ast.push_back(std::move(a2));
+					tentative_ast.push_back( a2 );
 				}
 			}
 
-			ast = std::move(tentative_ast);
+			ast = tentative_ast;
 		}
 		
 		for (auto &a : ast)
-			all_ast.push_back(std::move(a));
+			all_ast.push_back(a);
 	}
 
 	// then, for each tentative ast, we tacke the recipes that are front-recursive
 	{
-		std::vector<SyntaxTree> all_expanded_ast;
+		std::vector<SyntaxTree::SP> all_expanded_ast;
 		
 		while (not all_ast.empty()) {
 
-			SyntaxTree ast_to_expand = std::move(all_ast.back());
+			SyntaxTree::SP ast_to_expand = all_ast.back();
 			all_ast.pop_back();
 
 			all_expanded_ast.push_back(ast_to_expand);
@@ -133,42 +139,48 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 				// skip non front-recursive recipes.
 				if (recipe.front().str() != target.str()) continue;
 				
-				std::vector<SyntaxTree> ast;
-				ast.emplace_back(token_it, target);
-				ast.back().last = token_it;
+				std::vector<SyntaxTree::SP> ast;
+				ast.push_back(std::make_shared<SyntaxTree>(token_it, target, parent));
+				ast.back()->last = token_it;
 				
 				for (auto component : recipe) {
 					
-					std::vector<SyntaxTree> tentative_ast;
+					std::vector<SyntaxTree::SP> tentative_ast;
 
 					for (auto &a : ast) {
 						
-						if (a.last == token_it) {
+						if (a->last == token_it) {
 						
-							tentative_ast.push_back(ast_to_expand);
+							tentative_ast.push_back(std::make_shared<SyntaxTree>( *ast_to_expand ) );
 							continue;
 						}
 
-						for (auto &c : parse(a.last, last_token, component, debug)) {
+						for (auto &c : parse(a->last, last_token, component, debug)) {
 						
-							auto a2 = a;
-							a2.last = c.last;
+							auto a2 = std::make_shared<SyntaxTree>(*a);
+							a2->last = c->last;
+							for (auto &a2c : a2->children)
+								a2c->parent = a2;
+
 							if (component.force_root) {
-								a2.component = Grammar::Symbol::Component::Symbol( c.component.str() );
-								for (auto &c2 : c.children) 
-									a2.children.push_back( std::move(c2) );
-							} else if (c.is_empty == false) {
-								a2.children.push_back( std::move(c) );
+								a2->component = Grammar::Symbol::Component::Symbol( c->component.str() );
+								for (auto &c2 : c->children) {
+									c2->parent = a2;
+									a2->children.push_back( c2 ) ;
+								}
+							} else if (c->is_empty == false) {
+								c -> parent = a2;
+								a2->children.push_back( c );
 							}
-							tentative_ast.push_back(std::move(a2));
+							tentative_ast.push_back( a2 );
 						}
 					}
 					
-					ast = std::move(tentative_ast);
+					ast = tentative_ast;
 				}
 				
 				for (auto &a : ast)
-					all_ast.push_back(std::move(a));
+					all_ast.push_back(a);
 			}			
 		}
 		
@@ -177,16 +189,18 @@ std::vector<SyntaxTree> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token
 
 	if (grammar.symbols[target.str()].is_weak) {
 		for (auto &ast : all_ast) {
-			if (ast.component.str() != target.str()) {
+			if (ast->component.str() != target.str()) {
 				continue;
 			}
-			if (ast.children.empty()) {
-				ast.is_empty = true;
+			if (ast->children.empty()) {
+				ast->is_empty = true;
 			}
-			if (ast.children.size() == 1) {
-				auto e = ast.last;
-				ast = std::move(ast.children.front());
-				ast.last = e;
+			if (ast->children.size() == 1) {
+				auto e = ast->last;
+				auto p = ast->parent;
+				ast = ast->children.front();
+				ast->last = e;
+				ast->parent = p;
 			}
 		}
 	}
