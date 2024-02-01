@@ -36,8 +36,7 @@ primary_expression
 postfix_expression
 	: primary_expression
 	| postfix_expression '[' expression ']'
-	| postfix_expression '(' ')'
-	| postfix_expression '(' argument_expression_list ')'
+	| %label 'function_call' postfix_expression '(' %opt argument_expression_list ')'
 	| postfix_expression '.' IDENTIFIER
 	;
 
@@ -166,9 +165,8 @@ declaration
 	| %root 'namespace' IDENTIFIER '{' %opt translation_unit '}'
 	;
 
-%weak
 init_declarator_list
-	: IDENTIFIER
+	: %label 'default_declarator' IDENTIFIER
 	| %label 'init=' IDENTIFIER '=' initializer
 	| init_declarator_list ',' IDENTIFIER
 	| init_declarator_list ',' IDENTIFIER '=' initializer
@@ -223,7 +221,15 @@ attributes
 // ########################################################################
 // # STATEMENT 
 
-statement_list_scoped : '{' %opt statement_list '}' ;
+statement_scope 
+	: statement_list
+	;
+
+%weak
+statement_scope_without_keys
+	: statement_scope
+	| '{' %opt statement_scope '}'
+	;
 
 %weak
 statement_list
@@ -232,20 +238,20 @@ statement_list
 	;
 
 statement
-	: '{' %opt statement_list '}'
+	: '{' %opt statement_scope '}'
 	| ';'
 	| declaration
 	| expression ';'
-	| 'if' '(' expression ')' statement
-	| 'if' '(' expression ')' statement 'else' statement
-	| 'while' '(' expression ')' statement
-	| 'do' statement 'while' '(' expression ')' ';'
-	| 'for' '(' statement expression ';' expression ')' statement
-	| 'for' '(' 'auto' IDENTIFIER ':' expression ')' statement
-	| 'continue' ';'
-	| 'break' ';'
-	| 'return' ';'
-	| 'return' expression ';'
+	| %root 'if' '(' expression ')' statement_scope_without_keys
+	| %root 'if' '(' expression ')' statement_scope_without_keys 'else' statement_scope_without_keys
+	| %root 'while' '(' expression ')' statement_scope_without_keys
+	| %root 'do' statement 'while' '(' expression ')' ';'
+	| %root 'for' '(' statement expression ';' expression ')' statement_scope_without_keys
+	| %root 'for' '(' 'auto' IDENTIFIER ':' expression ')' statement_scope_without_keys
+	| %root 'continue' ';'
+	| %root 'break' ';'
+	| %root 'return' ';'
+	| %root 'return' expression ';'
 	;
 
 // ########################################################################
@@ -260,10 +266,10 @@ parameter_list
 	| parameter_list ',' type_name IDENTIFIER
 	;
 
-function_name : namespaced_identifier ;
+function_name : IDENTIFIER ;
 
 function_definition
-	: type_name function_name parameter_list_scoped statement_list_scoped
+	: type_name function_name parameter_list_scoped '{' %opt statement_scope '}'
 	;
 
 // ########################################################################

@@ -11,7 +11,7 @@ struct Grammar {
 	struct Symbol {
 		
 		// Symbol name
-		std::string name;
+		//std::string name;
 
 		// Weak symbols can be removed while parsing the tree if they have less than two children
 		bool is_weak;

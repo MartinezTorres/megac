@@ -57,8 +57,11 @@ Grammar::Grammar() {
 			if (not (iss >> s) ) return;
 		}
 
+		if (symbols.count(s)) Log(ERROR) << "Symbol " << s << "already exists";
+
 		Symbol &symbol = symbols[s];
-		symbol.name = s;
+		std::string symbol_name = s;
+		//symbol.name = s;
 		symbol.is_weak = is_weak;
 		is_weak = false;
 
@@ -80,19 +83,21 @@ Grammar::Grammar() {
 				if (subsymbol_name.empty()) {
 					
 					for (auto &recipe : recipes) {
-						Assert(not recipe.empty()) << " found an empty recipe in symbol " << symbol.name;
+						Assert(not recipe.empty()) << " found an empty recipe in symbol " << symbol_name;
 						symbol.recipes.push_back(recipe);
 					}
 					recipes.clear();
 				} else {
 
 					Grammar::Symbol::Component phony_component;
-					phony_component = Grammar::Symbol::Component::Symbol(symbol.name + "_sub_" + subsymbol_name);
-					
+					//phony_component = Grammar::Symbol::Component::Symbol(symbol_name + "_" + subsymbol_name);
+					phony_component = Grammar::Symbol::Component::Symbol("_"+subsymbol_name);
+
 					symbol.recipes.emplace_back(1,phony_component);
 					
+					if (symbols.count(phony_component.str())) Log(ERROR) << "Sub symbol " << subsymbol_name << " within " << symbol_name << "already exists";
 					Symbol &subsymbol = symbols[phony_component.str()];
-					subsymbol.name = subsymbol_name;
+					//subsymbol.name = subsymbol_name;
 					subsymbol.is_weak = false;
 
 					for (auto &recipe : recipes) {
@@ -110,7 +115,7 @@ Grammar::Grammar() {
 
 				if (not (iss >> s) ) Log(ERROR) << " expecting <name> after %label";
 			
-				subsymbol_name = s;
+				subsymbol_name = s.substr(1,s.size()-2);
 				 
 			} else if (s == "%root") {
 

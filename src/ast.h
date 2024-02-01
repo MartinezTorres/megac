@@ -26,5 +26,6 @@ struct SyntaxTree {
 
 	// filled during first pass:
 	SP included_syntax_tree;
+	std::map<std::string, SyntaxTree::SP> symbols;
 };
 
