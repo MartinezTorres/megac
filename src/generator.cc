@@ -196,7 +196,7 @@ static struct {
 			if (size()==1) {
 
 				if (ast->symbols.count(front())) return ast->symbols[front()];
-				if (!ast->parent) Log(ERROR) << "Symbol " << front() << " needed from " << from->first->to_line_string() << " not found";
+				if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from: \n" << from->first->to_line_string();
 				return resolve(ast->parent, from);
 			}
 
@@ -207,9 +207,11 @@ static struct {
 
 				if ( &s == &back() ) 
 					return a->symbols[s];
+				
+				a = a->symbols[s].symbol;
 			}
 
-			if (!ast->parent) Log(ERROR) << "Symbol " << front() << " needed from " << from->first->to_line_string() << " not found";
+			if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from:\n" << from->first->to_line_string();
 
 			return resolve(ast->parent, from);
 		}
@@ -218,10 +220,10 @@ static struct {
 
 	std::map<std::string, std::function<void(SyntaxTree::SP &, std::map<std::string, std::ostringstream> &, const std::string &)>> processors = {
 
-		{"_function_call", [&](SyntaxTree::SP &ast, std::map<std::string, std::ostringstream> &, const std::string &)  { 
+		{"function_call", [&](SyntaxTree::SP &ast, std::map<std::string, std::ostringstream> &, const std::string &)  { 
 
 			NamespacedIdentifier function_name(ast->children[0]);
-			auto funtion_ast = function_name.resolve(ast, ast);
+			auto funtion_ast = function_name.resolve(ast);
 
 
 
