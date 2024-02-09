@@ -194,7 +194,7 @@ type_name
 	| %label 'union' 'union' '{' %opt translation_unit '}' 
 	| %label 'function_type' %root 'function' '[' type_name parameter_list_scoped ']'
 	| %label 'bit_field' type_name ':' CONSTANT
-	| type_name attributes 
+	| type_name attribute_section 
 	;
 
 // ########################################################################
@@ -207,14 +207,14 @@ attribute
 	| %root IDENTIFIER
 	;
 
-attribute_list
+attributes
 	: attribute
-	| attribute_list ',' attribute
+	| attributes ',' attribute
 	;
 
 %weak
-attributes
-	: '<' %opt attribute_list '>'
+attribute_section
+	: '<' %opt attributes '>'
 	;
 
 // ########################################################################
@@ -258,7 +258,7 @@ function_name : IDENTIFIER ;
 
 function_body :  '{' %opt translation_unit '}' ;
 
-function_definition	: type_name function_name parameter_list_scoped function_body ;
+function_definition	: type_name function_name parameter_list_scoped %opt attribute_section function_body ;
 
 // ########################################################################
 // # TRANSLATION UNIT 
