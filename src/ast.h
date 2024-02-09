@@ -10,7 +10,8 @@ struct SyntaxTree {
 	TI first, last;
 
 	Grammar::Symbol::Component component;
-	
+
+	SP old;
 	SP parent;
 	std::vector<SP> children;
 
@@ -25,7 +26,7 @@ struct SyntaxTree {
 
 
 	// filled during first pass:
-	SP included_syntax_tree;
-	std::map<std::string, SyntaxTree::SP> symbols;
+	struct SymbolMap { SyntaxTree::SP symbol, type; };
+	std::map<std::string, SymbolMap> symbols;
 };
 

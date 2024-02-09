@@ -1,7 +1,7 @@
 namespace MSX {
 	
 	namespace BIOS {
-		function[void(int8_t<register=a>)]<asm, address = 0x00a2> CHPUT;
+		function[void(int8<register=a>)]<asm, address = 0x00a2> CHPUT;
 	};
 	
 	namespace graphics {

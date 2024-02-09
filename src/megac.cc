@@ -32,13 +32,13 @@ int main(int argc, char *argv[]) {
 
 	std::string source_file_name = pom["source_file"].as<std::string>();
 
-	SourceFile &source_file = SourceFile::Manager::get(source_file_name);
+//	SourceFile &source_file = SourceFile::Manager::get(source_file_name);
 
-	SyntaxTree::SP main_syntax_tree = std::make_shared<SyntaxTree>( source_file );
+//	SyntaxTree::SP main_syntax_tree = std::make_shared<SyntaxTree>( source_file );
 	
-	std::cout << main_syntax_tree->to_string();
+//	std::cout << main_syntax_tree->to_string();
 	
-	generate_code(main_syntax_tree);
+	generate_code( source_file_name );
 	
 	
 	

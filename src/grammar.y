@@ -12,12 +12,15 @@
 // # 
 
 // To avoid confusion, we won't allow identifiers to use the name of a reserved keyword of C++
-%reserved_keywords int goto alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept  const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend goto if inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public reflexpr register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor xor_eq ;
+%reserved_keywords int goto alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept  const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend function goto if inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public reflexpr register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor xor_eq uint8 uint16 int8 int16;
 
 // Key Tokens
 %token IDENTIFIER CONSTANT STRING_LITERAL ;
 
 %%
+
+// ########################################################################
+// # EXPRESSIONS 
 
 namespaced_identifier
 	: IDENTIFIER	
@@ -156,20 +159,15 @@ expression
 // ########################################################################
 // # DECLARATIONS 
 	
-%weak
-declaration
-	: ';'
-	| type_name init_declarator_list ';'
-	| %root 'typedef' type_name IDENTIFIER ';'
-	| '#' %root 'include' STRING_LITERAL
-	| %root 'namespace' IDENTIFIER '{' %opt translation_unit '}'
+
+init_declaration 
+	: %root IDENTIFIER
+	| IDENTIFIER %root '=' initializer 
 	;
 
 init_declarator_list
-	: %label 'default_declarator' IDENTIFIER
-	| %label 'init=' IDENTIFIER '=' initializer
-	| init_declarator_list ',' IDENTIFIER
-	| init_declarator_list ',' IDENTIFIER '=' initializer
+	: init_declaration
+	| init_declarator_list ',' init_declaration
 	;
 
 %weak
@@ -192,9 +190,9 @@ type_name
 	| %keep 'uint16'
 	| %keep 'int16'
 	| %label 'array' type_name '[' %opt CONSTANT ']'
-	| %label 'struct' 'struct' translation_unit_scoped
-	| %label 'union' 'union' translation_unit_scoped
-	| %label 'function' 'function' '[' type_name parameter_list_scoped ']'
+	| %label 'struct' 'struct' '{' %opt translation_unit '}' 
+	| %label 'union' 'union' '{' %opt translation_unit '}' 
+	| %label 'function_type' %root 'function' '[' type_name parameter_list_scoped ']'
 	| %label 'bit_field' type_name ':' CONSTANT
 	| type_name attributes 
 	;
@@ -203,10 +201,10 @@ type_name
 // # ATTRIBUTES
 
 attribute
-	: %keep 'asm'
-	| %keep 'register' '=' IDENTIFIER
-	| %keep 'address' '=' CONSTANT
-	| IDENTIFIER
+	: %root 'asm'
+	| %keep 'register' %root '=' IDENTIFIER
+	| IDENTIFIER %root '=' CONSTANT
+	| %root IDENTIFIER
 	;
 
 attribute_list
@@ -214,6 +212,7 @@ attribute_list
 	| attribute_list ',' attribute
 	;
 
+%weak
 attributes
 	: '<' %opt attribute_list '>'
 	;
@@ -221,37 +220,26 @@ attributes
 // ########################################################################
 // # STATEMENT 
 
-statement_scope 
-	: statement_list
-	;
-
 %weak
-statement_scope_without_keys
-	: statement_scope
-	| '{' %opt statement_scope '}'
-	;
-
-%weak
-statement_list
-	: statement
-	| statement_list statement
-	;
-
 statement
-	: '{' %opt statement_scope '}'
+	: '{' %opt translation_unit '}'
 	| ';'
-	| declaration
+	| function_definition
 	| expression ';'
-	| %root 'if' '(' expression ')' statement_scope_without_keys
-	| %root 'if' '(' expression ')' statement_scope_without_keys 'else' statement_scope_without_keys
-	| %root 'while' '(' expression ')' statement_scope_without_keys
+	| %root 'if' '(' expression ')' statement
+	| %root 'if' '(' expression ')' statement 'else' statement
+	| %root 'while' '(' expression ')' statement
 	| %root 'do' statement 'while' '(' expression ')' ';'
-	| %root 'for' '(' statement expression ';' expression ')' statement_scope_without_keys
-	| %root 'for' '(' 'auto' IDENTIFIER ':' expression ')' statement_scope_without_keys
+	| %root 'for' '(' statement expression ';' expression ')' statement
+	| %root 'for' '(' 'auto' IDENTIFIER ':' expression ')' statement
 	| %root 'continue' ';'
 	| %root 'break' ';'
 	| %root 'return' ';'
 	| %root 'return' expression ';'
+	| %label 'type_declaration' type_name init_declarator_list ';'
+	| %root 'typedef' type_name IDENTIFIER ';'
+	| '#' %root 'include' STRING_LITERAL
+	| %root 'namespace' IDENTIFIER '{' %opt translation_unit '}'
 	;
 
 // ########################################################################
@@ -268,20 +256,16 @@ parameter_list
 
 function_name : IDENTIFIER ;
 
-function_definition
-	: type_name function_name parameter_list_scoped '{' %opt statement_scope '}'
-	;
+function_body :  '{' %opt translation_unit '}' ;
+
+function_definition	: type_name function_name parameter_list_scoped function_body ;
 
 // ########################################################################
 // # TRANSLATION UNIT 
 
-translation_unit_scoped : '{' %opt translation_unit '}' ;
-
 translation_unit
-	: function_definition
-	| declaration
-	| translation_unit function_definition
-	| translation_unit declaration
+	: statement
+	| translation_unit statement
 	;
 
 %weak

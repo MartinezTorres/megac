@@ -15,6 +15,13 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 		if (component.str() == "STRING_LITERAL" and first->to_string().size()<40) {
 			oss << ": " << first->to_string();
 		}
+
+		if (component.str() == "translation_unit") {
+			oss << " [ ";
+			for (auto &s : symbols) 
+				oss << s.first << " ";
+			oss << "]";
+		}
 	} else { // component.is_token()
 		oss << prefix << "- TOKEN: " << component.str();
 	}
@@ -38,7 +45,7 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 	ParseDebug debug; 
 	debug.last_error_token = tokens.begin();
 	Grammar::Symbol::Component start_symbol; start_symbol = Grammar::Symbol::Component::Symbol("start");
-	auto all_ast = parse(tokens.begin(), tokens.end(), start_symbol, debug );
+	auto all_ast = parse(tokens.begin(), tokens.end(), start_symbol, debug);
 	
 	if (all_ast.empty()) {
 

@@ -91,7 +91,7 @@ Grammar::Grammar() {
 
 					Grammar::Symbol::Component phony_component;
 					//phony_component = Grammar::Symbol::Component::Symbol(symbol_name + "_" + subsymbol_name);
-					phony_component = Grammar::Symbol::Component::Symbol("_"+subsymbol_name);
+					phony_component = Grammar::Symbol::Component::Symbol(subsymbol_name);
 
 					symbol.recipes.emplace_back(1,phony_component);
 					
