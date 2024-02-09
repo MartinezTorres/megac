@@ -16,11 +16,18 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 			oss << ": " << first->to_string();
 		}
 
-		if (component.str() == "translation_unit") {
+		if ( not symbols.empty() ) {
 			oss << " [ ";
 			for (auto &s : symbols) 
 				oss << s.first << " ";
 			oss << "]";
+		}
+
+		if ( not attributes.empty() ) {
+			oss << " < ";
+			for (auto &s : attributes) 
+				oss << s.first << " ";
+			oss << ">";
 		}
 	} else { // component.is_token()
 		oss << prefix << "- TOKEN: " << component.str();

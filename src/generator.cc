@@ -52,7 +52,7 @@ static struct {
 
 
 /////////////////////////////////////////////////////////////////
-// INDENTIFY ALL SYMBOLS PASS: 
+// INDENTIFY SYMBOLS AND ATTRIBUTES PASS: 
 
 static struct {
 
@@ -97,7 +97,6 @@ static struct {
 				auto &c = ast->children[i];
 				auto &type = ast->children[0];
 
-
 				std::string symbol_name =  c->first->literal;
 				register_symbol( ast, type, symbol_name );
 			}
@@ -107,9 +106,28 @@ static struct {
 						
 			std::string namespace_name = ast->children[0]->first->literal;
 
-
-			Log(INFO) << "II: " << namespace_name ;
 			register_symbol( ast->children[1], ast, namespace_name );
+		}},
+
+		{"attributes", [&](SyntaxTree::SP &ast)  { 
+
+			std::map<std::string, SyntaxTree::SP> &attributes = ast->parent->attributes;
+		
+			for ( auto &attribute : ast->children ) {
+
+				if (attribute->component.str() == "=" ) {
+
+					std::string name = attribute->children[0]->first->literal;
+					if (attributes.count(name)) 
+						Log(ERROR) << "Attribute " << name << " already defined. \n" << attribute->children[0]->first->to_line_string();
+
+					attributes.emplace( name, attribute->children[1] );
+				} else {
+
+					std::string name = attribute->first->literal;
+					attributes.emplace( name, attribute );
+				}
+			}
 		}},
 	};
 
@@ -197,18 +215,6 @@ static struct {
 		}
 	};
 
-	struct Attributes : public std::map<std::string, SyntaxTree::SP> {
-		
-		Attributes( SyntaxTree::SP ast ) {
-
-			for ( auto &c : ast->children ) {
-				if ( c->component.str() == "attributes" ) {
-					
-				}
-			}
- 		}
-
-	};
 
 	std::map<std::string, std::function<void(SyntaxTree::SP &, std::map<std::string, std::ostringstream> &, const std::string &)>> processors = {
 

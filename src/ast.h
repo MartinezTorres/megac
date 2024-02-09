@@ -28,5 +28,6 @@ struct SyntaxTree {
 	// filled during first pass:
 	struct SymbolMap { SyntaxTree::SP symbol, type; };
 	std::map<std::string, SymbolMap> symbols;
+	std::map<std::string, SyntaxTree::SP> attributes;
 };
 
