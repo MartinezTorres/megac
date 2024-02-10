@@ -238,7 +238,7 @@ statement
 	| %root 'return' expression ';'
 	| %label 'type_declaration' type_name init_declarator_list ';'
 	| %root 'typedef' type_name IDENTIFIER ';'
-	| '#' %root 'include' STRING_LITERAL
+	| %root 'include' STRING_LITERAL
 	| %root 'namespace' IDENTIFIER '{' %opt translation_unit '}'
 	;
 
