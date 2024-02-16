@@ -12,7 +12,7 @@
 // # 
 
 // To avoid confusion, we won't allow identifiers to use the name of a reserved keyword of C++
-%reserved_keywords int goto alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept  const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend function goto if inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public reflexpr register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor xor_eq uint8 uint16 int8 int16;
+%reserved_keywords int goto alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept  const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend function goto if in inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public reflexpr register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typeof typename union unsigned using virtual void volatile wchar_t while xor xor_eq uint8 uint16 int8 int16;
 
 // Key Tokens
 %token IDENTIFIER CONSTANT STRING_LITERAL ;
@@ -147,7 +147,7 @@ assignment_expression
 	;
 
 %weak
-assignment_operator : '!=' | '>>=' | '<<=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' ;
+assignment_operator : '=' | '>>=' | '<<=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' ;
 
 
 %weak
@@ -192,7 +192,8 @@ type_name
 	| %label 'array' type_name '[' %opt CONSTANT ']'
 	| %label 'struct' 'struct' '{' %opt translation_unit '}' 
 	| %label 'union' 'union' '{' %opt translation_unit '}' 
-	| %label 'function_type' %root 'function' '[' type_name parameter_list_scoped ']'
+	| %keep 'typeof' '(' expression ')'
+	| function_declaration
 	| %label 'bit_field' type_name ':' CONSTANT
 	| type_name attribute_section 
 	;
@@ -224,19 +225,20 @@ attribute_section
 statement
 	: '{' %opt translation_unit '}'
 	| ';'
-	| function_definition
+	| function_definition_with_implicit_type
 	| expression ';'
-	| %root 'if' '(' expression ')' statement
-	| %root 'if' '(' expression ')' statement 'else' statement
-	| %root 'while' '(' expression ')' statement
-	| %root 'do' statement 'while' '(' expression ')' ';'
-	| %root 'for' '(' statement expression ';' expression ')' statement
-	| %root 'for' '(' 'auto' IDENTIFIER ':' expression ')' statement
+	| %root 'if' '(' expression ')' translation_unit_single
+	| %root 'if' '(' expression ')' translation_unit_single 'else' translation_unit_single
+	| %root 'while' '(' expression ')' translation_unit_single
+	| %root 'do' translation_unit_single 'while' '(' expression ')' ';'
+	| %root 'for' '(' statement expression ';' expression ')' translation_unit_single
+	| %root 'foreach' '(' IDENTIFIER ':' expression ')' translation_unit_single
 	| %root 'continue' ';'
 	| %root 'break' ';'
 	| %root 'return' ';'
 	| %root 'return' expression ';'
 	| %label 'type_declaration' type_name init_declarator_list ';'
+	| %root 'auto' init_declaration ';'
 	| %root 'typedef' type_name IDENTIFIER ';'
 	| %root 'include' STRING_LITERAL
 	| %root 'namespace' IDENTIFIER '{' %opt translation_unit '}'
@@ -245,23 +247,41 @@ statement
 // ########################################################################
 // # FUNCTION DEFINITION 
 
-parameter_list_scoped : '(' %opt parameter_list ')' ;
+function_return_type : type_name ;
 
-parameter_list
+%weak
+function_parameter_list_scoped 
+	: '(' function_parameter_list ')'
+	| function_parameter_list_empty
+	;
+
+function_parameter_list_empty :  '(' ')' ;
+
+function_parameter_declaration 
 	: type_name
 	| type_name IDENTIFIER
-	| parameter_list ',' type_name
-	| parameter_list ',' type_name IDENTIFIER
+	;
+
+
+function_parameter_list
+	: function_parameter_declaration
+	| function_parameter_list ',' function_parameter_declaration
 	;
 
 function_name : IDENTIFIER ;
 
 function_body :  '{' %opt translation_unit '}' ;
 
-function_definition	: type_name function_name parameter_list_scoped %opt attribute_section function_body ;
+function_definition_with_implicit_type : function_definition ;
+
+function_definition	: function_return_type function_name function_parameter_list_scoped %opt attribute_section function_body ;
+
+function_declaration : 'function' '[' function_return_type function_parameter_list_scoped  %opt attribute_section ']' ;
 
 // ########################################################################
 // # TRANSLATION UNIT 
+
+translation_unit_single : statement ;
 
 translation_unit
 	: statement

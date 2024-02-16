@@ -1,4 +1,5 @@
 {
+    "terminal.integrated.fontFamily": "Monaco",
     "makefile.launchConfigurations": [
         {
             "cwd": "/home/manel/repos/manel/msx/megac",

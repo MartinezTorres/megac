@@ -2,19 +2,78 @@
 #include <filesystem>
 #include <functional>
 
+/////////////////////////////////////////////////////////////////
+// COMMON HELPERS
+struct NamespacedIdentifier : public std::vector<std::string> {
+
+	NamespacedIdentifier(SyntaxTree::SP &ast) {
+
+		if (ast->component.str() != "namespaced_identifier") 
+			Log(ERROR) << "Missing namespaced_identifier in: " << " " << ast->first->to_line_string();
+		
+		for (auto &c : ast->children) 
+			push_back(c->first->literal);
+	}
+
+	SyntaxTree::SymbolMap &resolve( const SyntaxTree::SP &ast ) { return resolve(ast, ast); }
+
+	SyntaxTree::SymbolMap &resolve(const SyntaxTree::SP &ast, const SyntaxTree::SP &from) {
+		
+		if (size()==1) {
+
+			if (ast->symbols.count(front())) return ast->symbols[front()];
+			if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from: \n" << from->first->to_line_string();
+			return resolve(ast->parent, from);
+		}
+
+		SyntaxTree::SP a = ast;
+		for (auto &s : *this) {
+			if (a->symbols.count(s) == 0) 
+				break;
+
+			if ( &s == &back() ) 
+				return a->symbols[s];
+			
+			a = a->symbols[s].symbol;
+		}
+
+		if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from:\n" << from->first->to_line_string();
+
+		return resolve(ast->parent, from);
+	}
+};
+
+static void register_symbol(SyntaxTree::SP &ast, SyntaxTree::SP &type,const std::string &name) {
+
+	static uint32_t symbol_idx = 1000000;
+	
+	auto translation_unit = ast;
+	do {
+
+		Log(INFO) << translation_unit->component.str()  << " " << name;
+		translation_unit = translation_unit->parent;
+	
+	} while (translation_unit->component.str() != "translation_unit");
+
+	if (translation_unit->symbols.count(name)) 
+		Log(ERROR) << "Symbol " << name << " already defined in scope. \n" 
+			<< "First definition in: " << translation_unit->symbols[name].symbol->first->to_line_string() 
+			<< "Duplicated definition in: " << ast->first->to_line_string();
+
+	translation_unit->symbols[name] = { ast, type, "____mc" + std::to_string(symbol_idx++) + name};
+}
+
 
 /////////////////////////////////////////////////////////////////
 // PREPROCESSOR PASS: 
-//  * TARGET: INCLUDE MODULES
-
+//  * TARGETS: INCLUDE MODULES, SIMPLIFY SYNTAX
 static struct {
 
 	std::map<std::string, std::function<void(SyntaxTree::SP &)>> processors = {
 
 		{"include", [&](SyntaxTree::SP &ast) { 
 
-			Assert(ast->children.size()==1) << " include lacks a parameter.";
-			Assert(ast->children.front()->component.str()=="STRING_LITERAL") << " parameter isn't a STRING_LITERAL";
+			Assert(ast[0]->component.str()=="STRING_LITERAL") << " parameter isn't a STRING_LITERAL";
 
 			std::filesystem::path ast_file_path = ast->first->begin_ptr.get_file().path;
 			std::string included_file_name = std::string(ast_file_path.parent_path()) + "/" + ast->children.front()->first->literal;
@@ -32,6 +91,28 @@ static struct {
 			ast = included_syntax_tree;
 
 		}},
+
+		{"translation_unit_single", [&](SyntaxTree::SP &ast) { ast->component = Grammar::Symbol::Component::Symbol("translation_unit"); }},
+
+		{"function_definition", [&](SyntaxTree::SP &ast) { 
+
+			// We leverage function definintions as in C format for convenience, but this does not match very well our definition of function type, 
+			// so we modify the order of the function childrens to match the function type definintion
+			std::swap( ast->children[1], ast->children[2] );
+		}},
+
+	/*	{"foreach", [&](SyntaxTree::SP &ast) { 
+
+			SyntaxTree::SP new_ast;
+			new_ast->parent = ast->parent;
+			new_ast->old = ast;
+			new_ast->component = Grammar::Symbol::Component::Symbol("included_scope");
+			ast = new_ast;
+
+			auto iterator = ast.old[0];
+			auto container = ast.old[1];
+
+		}},*/
 	};
 
 	void process(SyntaxTree::SP &ast) {
@@ -53,39 +134,16 @@ static struct {
 
 /////////////////////////////////////////////////////////////////
 // INDENTIFY SYMBOLS AND ATTRIBUTES PASS: 
-
 static struct {
-
-	void register_symbol(SyntaxTree::SP &ast, SyntaxTree::SP &type,const std::string &name) {
-		
-		auto translation_unit = ast;
-		do {
-
-			Log(INFO) << translation_unit->component.str()  << " " << name;
-			translation_unit = translation_unit->parent;
-		
-		} while (translation_unit->component.str() != "translation_unit");
-
-		if (translation_unit->symbols.count(name)) 
-			Log(ERROR) << "Symbol " << name << " already defined in scope. \n" 
-				<< "First definition in: " << translation_unit->symbols[name].symbol->first->to_line_string() 
-				<< "Duplicated definition in: " << ast->first->to_line_string();
-
-		translation_unit->symbols[name] = { ast, type };
-	}
 
 	std::map<std::string, std::function<void(SyntaxTree::SP &)>> processors = {
 
-		{"statement_scope", [&](SyntaxTree::SP &ast) { ast->component = Grammar::Symbol::Component::Symbol("translation_unit"); }},
 
 		{"function_definition", [&](SyntaxTree::SP &ast) { 
-
-			if (ast->children[1]->component.str() != "function_name") 
-				Log(ERROR) << "Malformed function definiton in: " << " " << ast->first->to_line_string();
 			
-			std::string function_name =  ast->children[1]->children[0]->first->literal;
+			std::string function_name =  ast[2][0]->first->literal;
 
-			SyntaxTree::SP type = ast;
+			SyntaxTree::SP type = ast->parent;
 
 			register_symbol( ast, type, function_name );
 		}},
@@ -174,77 +232,76 @@ static struct {
 
 /////////////////////////////////////////////////////////////////
 // CODE GENERATION PASS: 
+// There is no optimizations here, only raw code generation. Not even inling.
 
 
-static struct {
+struct CodeGenerationPass {
 
-	struct NamespacedIdentifier : public std::vector<std::string> {
+	std::map<std::string, std::ostringstream> code_units;
 
-		NamespacedIdentifier(SyntaxTree::SP &ast) {
+	uint32_t unit_name_idx = 1000000;
+	std::string new_id() {
 
-			if (ast->component.str() != "namespaced_identifier") 
-				Log(ERROR) << "Missing namespaced_identifier in: " << " " << ast->first->to_line_string();
-			
-			for (auto &c : ast->children) 
-				push_back(c->first->literal);
-		}
+		return "id_" + std::to_string(unit_name_idx++);
+	}
 
-		SyntaxTree::SymbolMap &resolve( const SyntaxTree::SP &ast ) { return resolve(ast, ast); }
+	std::string type_to_c(const SyntaxTree::SP &) {
 
-		SyntaxTree::SymbolMap &resolve(const SyntaxTree::SP &ast, const SyntaxTree::SP &from) {
-			
-			if (size()==1) {
+		std::string ret = "";
 
-				if (ast->symbols.count(front())) return ast->symbols[front()];
-				if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from: \n" << from->first->to_line_string();
-				return resolve(ast->parent, from);
-			}
+		return ret;
 
-			SyntaxTree::SP a = ast;
-			for (auto &s : *this) {
-				if (a->symbols.count(s) == 0) 
-					break;
-
-				if ( &s == &back() ) 
-					return a->symbols[s];
-				
-				a = a->symbols[s].symbol;
-			}
-
-			if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from:\n" << from->first->to_line_string();
-
-			return resolve(ast->parent, from);
-		}
-	};
+	}	
+	
+	std::map<std::string, std::function<bool(SyntaxTree::SP &, std::ostringstream &)>> processors = {
 
 
-	std::map<std::string, std::function<void(SyntaxTree::SP &, std::map<std::string, std::ostringstream> &, const std::string &)>> processors = {
 
-		{"function_call", [&](SyntaxTree::SP &ast, std::map<std::string, std::ostringstream> &, const std::string &)  { 
+		{"function_call", [&](SyntaxTree::SP &ast, std::ostringstream &oss) -> bool  { 
 
 			NamespacedIdentifier function_name(ast->children[0]);
 			auto funtion_ast = function_name.resolve(ast);
 
+			std::cout << funtion_ast.type->to_string();
 
+			auto &args = funtion_ast.type[0][1]->children;
+			for (auto &arg : args)
+				process( arg, oss );
 
+			auto return_type = funtion_ast.type[0][0][0][0];
+			if (return_type->component.str() != "void") {
+				ast->generated_variable_id = new_id();
+				oss << type_to_c(return_type) << " " << ast->generated_variable_id << " = ";
+			}
 
+			oss << funtion_ast.generated_name << "( " ;
+			for ( auto &a : args ) {
 
-			
+				if ( &a != &args.front() ) oss << ", ";
+				oss << a->generated_variable_id;
+			}
+			oss << ");" << std::endl;
+
+			return false;
 		}},
 	};
 
-	void process(SyntaxTree::SP &ast, std::map<std::string, std::ostringstream> &out, const std::string &base) {
+	void process( SyntaxTree::SP &ast ) { process (ast, code_units["base"] ); }
+	void process(SyntaxTree::SP &ast, std::ostringstream &oss) {
 
 		std::string symbol = ast->component.str();
 
-		if (processors.count(symbol))
-			processors[symbol](ast, out, base);
+		bool process_children = true;
 
-		for (auto &c : ast->children)
-			process(c, out, base);
+		if (processors.count(symbol))
+			process_children = processors[symbol](ast, oss);
+
+		if (process_children)
+			for (auto &c : ast->children)
+				process(c, oss);
 	}
 
-} code_generation_pass;
+};
 
 
 
@@ -271,8 +328,15 @@ void generate_code( std::string source_file_name ) {
 	std::cout << main_syntax_tree->to_string();
 
 	Log(INFO) << "THIRD PASS";
-	std::map<std::string, std::ostringstream> out;
-	code_generation_pass.process(main_syntax_tree, out, "");
-	std::cout << main_syntax_tree->to_string();
+	CodeGenerationPass code_generation_pass;
+	code_generation_pass.process(main_syntax_tree);
+	//std::cout << main_syntax_tree->to_string();
+
+	for (auto &cu : code_generation_pass.code_units) {
+
+		Log(INFO) << cu.first;
+		std::cout << cu.second.str() << std::endl;
+
+	}
 
 }

@@ -4,7 +4,23 @@
 
 struct SyntaxTree {
 
-	using SP = std::shared_ptr<SyntaxTree>;
+	struct SP : std::shared_ptr<SyntaxTree> {
+		SP() {}
+		SP(const std::shared_ptr<SyntaxTree> &s) : std::shared_ptr<SyntaxTree>(s) {}
+
+		SyntaxTree::SP &operator[](size_t i) { 
+			auto &ast = *this;
+			if ( ast->children.size() > i ) return ast->children[i]; 
+			Log(ERROR) << "Children " << i << " not found in " << ast->component.str() << ". \n" << ast->first->to_line_string(); throw;
+		}
+
+		SyntaxTree::SP &operator[](std::string s) { 
+			auto &ast = *this;
+			for (auto &c : ast->children) if (c and c->component.str()==s ) return c; 
+			Log(ERROR) << s << " not found in " << ast->component.str() << ". \n" << ast->first->to_line_string(); throw;
+		}
+	};
+
 	using TI = std::vector<Token>::const_iterator;
 	
 	TI first, last;
@@ -25,9 +41,13 @@ struct SyntaxTree {
 
 
 
+
 	// filled during first pass:
-	struct SymbolMap { SyntaxTree::SP symbol, type; };
+	struct SymbolMap { SyntaxTree::SP symbol, type; std::string generated_name; };
 	std::map<std::string, SymbolMap> symbols;
 	std::map<std::string, SyntaxTree::SP> attributes;
+
+	// filled during code generation
+	std::string generated_variable_id;
 };
 

@@ -41,6 +41,10 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 			if (target.is_token() and not target.must_keep)
 				ret->is_empty = true;
 
+			if (target.must_keep) {
+				ret->component = Grammar::Symbol::Component::Symbol( token_it->literal );
+			}
+
 			return std::vector<SyntaxTree::SP>(1, ret);
 		};
 
