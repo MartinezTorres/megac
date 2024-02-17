@@ -5,7 +5,7 @@
 static Grammar grammar;
 
 std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_token, Grammar::Symbol::Component target, ParseDebug &debug, std::vector<std::string> parent_targets_without_consuming_tokens, SyntaxTree::SP parent) {
-	
+
 	// This filters out non-trivially front-recursive recipes. I haven't slept in a week while trying and failing to find a general solution for this problem. Randomly, some kind of programming deity just put me this idea on my mind. It seems to work. I have no idea why.
 	if (parent_targets_without_consuming_tokens.size()>2) {
 		size_t N = parent_targets_without_consuming_tokens.size();
@@ -20,7 +20,7 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 					return std::vector<SyntaxTree::SP>();
 		}
 	}
-	
+
 	// tackle leaf nodes: which can be a keyword, an identifier, a numeric constant, or a string literal.
 	{
 		auto expect = [&](bool condition) -> std::vector<SyntaxTree::SP> {
@@ -79,7 +79,7 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 
 		// skip pure front-recursive recipes.
 		{
-			bool is_front_recursive_recipe = (recipe.front().str() == target.str());
+			bool is_front_recursive_recipe = recipe.front().is_symbol() and (recipe.front().str() == target.str());
 			if (is_front_recursive_recipe) continue;
 		}
 
@@ -141,7 +141,10 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 			for (auto &recipe : grammar.symbols[target.str()].recipes) {
 								
 				// skip non front-recursive recipes.
-				if (recipe.front().str() != target.str()) continue;
+				{
+					bool is_front_recursive_recipe = recipe.front().is_symbol() and (recipe.front().str() == target.str());
+					if (not is_front_recursive_recipe) continue;
+				}
 				
 				std::vector<SyntaxTree::SP> ast;
 				ast.push_back(std::make_shared<SyntaxTree>(token_it, target, parent));

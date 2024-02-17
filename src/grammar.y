@@ -12,7 +12,15 @@
 // # 
 
 // To avoid confusion, we won't allow identifiers to use the name of a reserved keyword of C++
-%reserved_keywords int goto alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept  const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit export extern false float for friend function goto if in inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private protected public reflexpr register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct switch synchronized template this thread_local throw true try typedef typeid typeof typename union unsigned using virtual void volatile wchar_t while xor xor_eq uint8 uint16 int8 int16;
+%reserved_keywords int goto alignas alignof and and_eq asm atomic_cancel atomic_commit atomic_noexcept
+     auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept  const
+	 consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default
+	 delete do double dynamic_cast else enum explicit export extern false float for friend function
+	 goto if in inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq
+	 private protected public reflexpr register reinterpret_cast requires return short signed sizeof
+	 static static_assert static_cast struct switch synchronized template this thread_local throw true
+	 try typedef typeid typeof typename union unsigned using virtual void volatile wchar_t while xor
+	 xor_eq uint8 uint16 int8 int16;
 
 // Key Tokens
 %token IDENTIFIER CONSTANT STRING_LITERAL ;
@@ -182,6 +190,8 @@ initializer_list
 	| initializer_list ',' initializer
 	;
 
+typeof : 'typeof' '(' expression ')' ;
+
 type_name
 	: namespaced_identifier
 	| %keep 'void'
@@ -192,7 +202,7 @@ type_name
 	| %label 'array' type_name '[' %opt CONSTANT ']'
 	| %label 'struct' 'struct' '{' %opt translation_unit '}' 
 	| %label 'union' 'union' '{' %opt translation_unit '}' 
-	| %keep 'typeof' '(' expression ')'
+	| typeof
 	| function_declaration
 	| %label 'bit_field' type_name ':' CONSTANT
 	| type_name attribute_section 

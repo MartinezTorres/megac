@@ -120,7 +120,7 @@ static struct {
 			SourceFile &foreach_file = SourceFile::Manager::get("__mc__foreach_macro", foreach_string);
 			SyntaxTree::SP foreach_ast = std::make_shared<SyntaxTree>( foreach_file );
 
-			//std::cerr << foreach->to_string(); 
+			//std::cerr << foreach_ast->to_string(); 
 			SyntaxTree::SP &a1 = foreach_ast[0][0][0][1][0];
 			//std::cerr << "A1: \n" << a1->to_string(); 
 			SyntaxTree::SP &a2 = foreach_ast[0][1][0][1][0];
@@ -158,7 +158,7 @@ static struct {
 			auto_ast = auto_ast[0];
 
 			//std::cerr << auto_ast->to_string(); 
-			SyntaxTree::SP &a1 = auto_ast[0][1];
+			SyntaxTree::SP &a1 = auto_ast[0][0][0];
 			//std::cerr << "A1: \n" << a1->to_string(); 
 			SyntaxTree::SP &a2 = auto_ast[1][0][0];
 			//std::cerr << "A2: \n" << a2->to_string(); 
@@ -176,6 +176,7 @@ static struct {
 			ast = auto_ast;
 
 			//std::cerr << ast->to_string(); 
+			//Log(ERROR) << "";
 
 		}},
 	};
@@ -384,10 +385,13 @@ void generate_code( std::string source_file_name ) {
 
 	if (main_syntax_tree->component.str() != "translation_unit") 
 		Log(ERROR) << "Base syntax tree isn't translation unit but: " << main_syntax_tree->component.str();
-	
+
+
 	Log(INFO) << "PREPROCESSOR PASS";
 	preprocessor_pass.process(main_syntax_tree);
 	std::cout << main_syntax_tree->to_string();
+
+	Log(ERROR) << "";
 
 	Log(INFO) << "SYMBOL IDENTIFICATION PASS";
 	identify_symbols_pass.process(main_syntax_tree);

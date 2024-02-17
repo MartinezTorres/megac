@@ -4,7 +4,7 @@
         {
             "cwd": "/home/manel/repos/manel/msx/megac",
             "binaryPath": "/usr/bin/time",
-            "binaryArgs": ["/home/manel/repos/manel/msx/megac/bin/megac", "-l", "-3", "samples/hello_world.mc"],
+            "binaryArgs": ["/home/manel/repos/manel/msx/megac/bin/megac", "-l", "-2", "samples/hello_world.mc"],
         }
     ],
     "files.associations": {
