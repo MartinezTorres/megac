@@ -9,7 +9,7 @@ namespace MSX {
 		void print( string msg ) {
 			
 			foreach ( c : msg ) 
-				BIOS::CHPUT(c);
+				BIOS::CHPUT(+c);
 
 			/*{
 				auto begin = msg.begin;

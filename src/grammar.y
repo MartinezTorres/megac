@@ -59,8 +59,8 @@ argument_expression_list
 %weak
 unary_expression
 	: postfix_expression
-	| %root '++' unary_expression
-	| %root '--' unary_expression
+	| %label '++()' '++' unary_expression
+	| %label '--()' '--' unary_expression
 	| unary_operator cast_expression
 	| %root 'sizeof' unary_expression
 	| %root 'sizeof' '(' type_name ')'
