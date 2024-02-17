@@ -46,9 +46,9 @@ primary_expression
 %weak
 postfix_expression
 	: primary_expression
-	| postfix_expression '[' expression ']'
+	| %label 'array_expression' postfix_expression '[' expression ']'
 	| %label 'function_call' postfix_expression '(' %opt argument_expression_list ')'
-	| postfix_expression '.' IDENTIFIER
+	| postfix_expression %root '.' IDENTIFIER
 	;
 
 argument_expression_list
@@ -59,14 +59,14 @@ argument_expression_list
 %weak
 unary_expression
 	: postfix_expression
-	| '++' unary_expression
-	| '--' unary_expression
+	| %root '++' unary_expression
+	| %root '--' unary_expression
 	| unary_operator cast_expression
-	| 'sizeof' unary_expression
-	| 'sizeof' '(' type_name ')'
+	| %root 'sizeof' unary_expression
+	| %root 'sizeof' '(' type_name ')'
 	;
 
-unary_operator : '&' | '+' | '-' | '~' | '!' ;
+unary_operator : %root '&' | %root '+' | %root '-' | %root '~' | %root '!' ;
 
 %weak
 cast_expression
@@ -77,39 +77,39 @@ cast_expression
 %weak
 multiplicative_expression
 	: cast_expression
-	| multiplicative_expression '*' cast_expression
-	| multiplicative_expression '/' cast_expression
-	| multiplicative_expression '%' cast_expression
+	| multiplicative_expression %root '*' cast_expression
+	| multiplicative_expression %root '/' cast_expression
+	| multiplicative_expression %root '%' cast_expression
 	;
 
 %weak
 additive_expression
 	: multiplicative_expression
-	| additive_expression '+' multiplicative_expression
-	| additive_expression '-' multiplicative_expression
+	| additive_expression %root '+' multiplicative_expression
+	| additive_expression %root '-' multiplicative_expression
 	;
 
 %weak
 shift_expression
 	: additive_expression
-	| shift_expression '<<' additive_expression
-	| shift_expression '>>' additive_expression
+	| shift_expression %root '<<' additive_expression
+	| shift_expression %root '>>' additive_expression
 	;
 
 %weak
 relational_expression
 	: shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
-	| relational_expression '<' shift_expression
-	| relational_expression '>' shift_expression
+	| relational_expression %root '<' shift_expression
+	| relational_expression %root '>' shift_expression
+	| relational_expression %root '<' shift_expression
+	| relational_expression %root '>' shift_expression
 	;
 
 %weak
 equality_expression
 	: relational_expression
-	| equality_expression '==' relational_expression
-	| equality_expression '!=' relational_expression
+	| equality_expression %root '==' relational_expression
+	| equality_expression %root '!=' relational_expression
 	;
 
 %weak
@@ -155,14 +155,15 @@ assignment_expression
 	;
 
 %weak
-assignment_operator : '=' | '>>=' | '<<=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '^=' | '|=' ;
+assignment_operator : %keep '=' | %keep '>>=' | %keep '<<=' | %keep '+=' | %keep '-=' | %keep '*=' | %keep '/=' | %keep '%=' | %keep '&=' | %keep '^=' | %keep '|=' ;
 
-
-%weak
-expression
+%weak 
+comma_expression
 	: assignment_expression
 	| expression ',' assignment_expression
 	;
+
+expression : comma_expression ;
 	
 // ########################################################################
 // # DECLARATIONS 
@@ -190,8 +191,6 @@ initializer_list
 	| initializer_list ',' initializer
 	;
 
-typeof : 'typeof' '(' expression ')' ;
-
 type_name
 	: namespaced_identifier
 	| %keep 'void'
@@ -202,7 +201,7 @@ type_name
 	| %label 'array' type_name '[' %opt CONSTANT ']'
 	| %label 'struct' 'struct' '{' %opt translation_unit '}' 
 	| %label 'union' 'union' '{' %opt translation_unit '}' 
-	| typeof
+	| %label 'typeof'  'typeof' '(' expression ')'
 	| function_declaration
 	| %label 'bit_field' type_name ':' CONSTANT
 	| type_name attribute_section 
