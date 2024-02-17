@@ -1,7 +1,7 @@
 #pragma once
 
-#include <boost/iostreams/device/mapped_file.hpp>
-
+#include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 #include <iomanip>
@@ -14,10 +14,8 @@ struct SyntaxTree;
 struct SourceFile {
 	
 	std::string path;
-	std::shared_ptr<boost::iostreams::mapped_file_source> source;
+	std::shared_ptr<std::string> source;
 	std::shared_ptr<std::vector<Token>> tokens;
-	std::shared_ptr<SyntaxTree> syntax_tree;
-	
 	
 	SourceFile(std::string _path) : path(_path) {
 			
@@ -25,7 +23,10 @@ struct SourceFile {
 
 			Log(INFO) << "Opening file: " << path;
 
-			source = std::make_shared<boost::iostreams::mapped_file_source>(path);
+			std::ifstream inputFile(path, std::ios::binary);
+			std::ostringstream fileContent;
+			fileContent << inputFile.rdbuf();
+			source = std::make_shared<std::string>(fileContent.str());
 			
 		} catch (std::exception const&  e) {
 		
@@ -34,7 +35,9 @@ struct SourceFile {
 
 		Assert(bool(source)) << "file is valid";	
 	}
-	
+
+	SourceFile(std::string name, const std::string_view &content) : path(name), source(std::make_shared<std::string>(content)) {}
+
 	class Manager {
 		
 		static std::map<std::string, SourceFile> &storage() {
@@ -47,6 +50,14 @@ struct SourceFile {
 			
 			if (storage().count(path) == 0)	
 				storage().emplace(path, SourceFile(path) );
+			
+			return storage().at(path);
+		}
+
+		static SourceFile &get( std::string path, const std::string_view &content ) {
+			
+			if (storage().count(path) == 0)	
+				storage().emplace(path, SourceFile(path, content) );
 			
 			return storage().at(path);
 		}
@@ -67,8 +78,8 @@ class NormalizedSourcePtr {
 	};
 
 	class SourcePtr {
-		boost::iostreams::mapped_file_source *src;
-		boost::iostreams::mapped_file_source::iterator it = nullptr;
+		std::string *src;
+		std::string::iterator it;
 
 	public:
 		SourcePtr(const SourceFile &source_file) : src(source_file.source.get()), it(src->begin()) {} 

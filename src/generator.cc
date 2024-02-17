@@ -101,18 +101,83 @@ static struct {
 			std::swap( ast->children[1], ast->children[2] );
 		}},
 
-	/*	{"foreach", [&](SyntaxTree::SP &ast) { 
+		{"foreach", [&](SyntaxTree::SP &ast) { 
 
-			SyntaxTree::SP new_ast;
-			new_ast->parent = ast->parent;
-			new_ast->old = ast;
-			new_ast->component = Grammar::Symbol::Component::Symbol("included_scope");
-			ast = new_ast;
+			// It's not that I took the terminator from stackoverflow, but I just really like Vogons.
+			static const constexpr std::string_view foreach_string = R"V0G0N(
+			{
+				auto __mc__begin = a1.begin;
+				auto __mc__end = a2.end;
+				for ( ; __mc__begin != __mc__end ; ++__mc__begin )  {
+					auto a3 = __mc__begin[0];
+					{
+						a4;
+					}
+				}
+			}
+			)V0G0N";	
 
-			auto iterator = ast.old[0];
-			auto container = ast.old[1];
+			SourceFile &foreach_file = SourceFile::Manager::get("__mc__foreach", foreach_string);
+			SyntaxTree::SP foreach_ast = std::make_shared<SyntaxTree>( foreach_file );
 
-		}},*/
+			//std::cerr << foreach->to_string(); 
+			SyntaxTree::SP &a1 = foreach_ast[0][0][0][1][0];
+			//std::cerr << "A1: \n" << a1->to_string(); 
+			SyntaxTree::SP &a2 = foreach_ast[0][1][0][1][0];
+			//std::cerr << "A2: \n" << a2->to_string(); 
+			SyntaxTree::SP &a3 = foreach_ast[0][2][2][0][0][0][0];
+			//std::cerr << "A3: \n" << a3->to_string(); 
+			SyntaxTree::SP &a4 = foreach_ast[0][2][2][0][1];
+			//std::cerr << "A4: \n" << a4->to_string(); 
+
+			//std::cerr << ast->to_string(); 
+
+			a1 = ast[1];
+			a2 = ast[1];
+			a3 = ast[0];
+			a4 = ast[2];
+
+			foreach_ast->parent = ast->parent;
+			foreach_ast->old = ast;
+			ast = foreach_ast;
+
+			//std::cerr << ast->to_string(); 
+
+		}},
+
+		
+		{"auto", [&](SyntaxTree::SP &ast) { 
+
+			// It's not that I took the terminator from stackoverflow, but I just really like Vogons.
+			static const constexpr std::string_view auto_string = R"V0G0N(
+				typeof(a1) a2 = a3;
+			)V0G0N";	
+
+			SourceFile &auto_file = SourceFile::Manager::get("__mc__auto", auto_string);
+			SyntaxTree::SP auto_ast = std::make_shared<SyntaxTree>( auto_file );
+			auto_ast = auto_ast[0];
+
+			//std::cerr << auto_ast->to_string(); 
+			SyntaxTree::SP &a1 = auto_ast[0][1];
+			//std::cerr << "A1: \n" << a1->to_string(); 
+			SyntaxTree::SP &a2 = auto_ast[1][0][0];
+			//std::cerr << "A2: \n" << a2->to_string(); 
+			SyntaxTree::SP &a3 = auto_ast[1][0][1];
+			//std::cerr << "A3: \n" << a3->to_string(); 
+
+			//std::cerr << ast->to_string(); 
+
+			a1 = ast[0][1];
+			a2 = ast[0][0];
+			a3 = ast[0][1];
+
+			auto_ast->parent = ast->parent;
+			auto_ast->old = ast;
+			ast = auto_ast;
+
+			//std::cerr << ast->to_string(); 
+
+		}},
 	};
 
 	void process(SyntaxTree::SP &ast) {
@@ -149,13 +214,18 @@ static struct {
 		}},
 
 		{"type_declaration", [&](SyntaxTree::SP &ast)  { 
-						
-			for (std::size_t i = 1; i < ast->children.size(); i++ ) {
+			
+			auto &type_declaration_list = ast[1];
+			for (std::size_t i = 0; i < type_declaration_list->children.size(); i++ ) {
 
-				auto &c = ast->children[i];
-				auto &type = ast->children[0];
+				auto c = type_declaration_list[i];
+				if ( c.str() == "=" )
+					c = c[0];
 
 				std::string symbol_name =  c->first->literal;
+
+				auto &type = ast[0];
+
 				register_symbol( ast, type, symbol_name );
 			}
 		}},
@@ -262,7 +332,7 @@ struct CodeGenerationPass {
 			NamespacedIdentifier function_name(ast->children[0]);
 			auto funtion_ast = function_name.resolve(ast);
 
-			std::cout << funtion_ast.type->to_string();
+			//std::cout << funtion_ast.type->to_string();
 
 			auto &args = funtion_ast.type[0][1]->children;
 			for (auto &arg : args)

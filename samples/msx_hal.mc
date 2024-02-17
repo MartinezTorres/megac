@@ -11,7 +11,7 @@ namespace MSX {
 			foreach ( c : msg ) 
 				BIOS::CHPUT(c);
 
-			{
+			/*{
 				auto begin = msg.begin;
 				auto end = msg.end;
 				for ( ; begin != end ; ++begin )  {
@@ -27,7 +27,7 @@ namespace MSX {
 					typeof(begin[0]) c = begin[0];	
 					BIOS::CHPUT(c);
 				}
-			}
+			}*/
 		}
 	}
 }

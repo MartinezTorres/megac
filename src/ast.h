@@ -19,6 +19,8 @@ struct SyntaxTree {
 			for (auto &c : ast->children) if (c and c->component.str()==s ) return c; 
 			Log(ERROR) << s << " not found in " << ast->component.str() << ". \n" << ast->first->to_line_string(); throw;
 		}
+
+		std::string str() { return get()->component.str(); }
 	};
 
 	using TI = std::vector<Token>::const_iterator;
