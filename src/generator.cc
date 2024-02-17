@@ -117,7 +117,7 @@ static struct {
 			}
 			)V0G0N";	
 
-			SourceFile &foreach_file = SourceFile::Manager::get("__mc__foreach", foreach_string);
+			SourceFile &foreach_file = SourceFile::Manager::get("__mc__foreach_macro", foreach_string);
 			SyntaxTree::SP foreach_ast = std::make_shared<SyntaxTree>( foreach_file );
 
 			//std::cerr << foreach->to_string(); 
@@ -153,7 +153,7 @@ static struct {
 				typeof(a1) a2 = a3;
 			)V0G0N";	
 
-			SourceFile &auto_file = SourceFile::Manager::get("__mc__auto", auto_string);
+			SourceFile &auto_file = SourceFile::Manager::get("__mc__auto_macro", auto_string);
 			SyntaxTree::SP auto_ast = std::make_shared<SyntaxTree>( auto_file );
 			auto_ast = auto_ast[0];
 
