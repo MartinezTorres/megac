@@ -15,9 +15,9 @@ struct NamespacedIdentifier : public std::vector<std::string> {
 			push_back(c->first->literal);
 	}
 
-	SyntaxTree::SymbolMap &resolve( const SyntaxTree::SP &ast ) { return resolve(ast, ast); }
+	SyntaxTree::SP &resolve( const SyntaxTree::SP &ast ) { return resolve(ast, ast); }
 
-	SyntaxTree::SymbolMap &resolve(const SyntaxTree::SP &ast, const SyntaxTree::SP &from) {
+	SyntaxTree::SP &resolve(const SyntaxTree::SP &ast, const SyntaxTree::SP &from) {
 		
 		if (size()==1) {
 
@@ -34,7 +34,7 @@ struct NamespacedIdentifier : public std::vector<std::string> {
 			if ( &s == &back() ) 
 				return a->symbols[s];
 			
-			a = a->symbols[s].symbol;
+			a = a->symbols[s];
 		}
 
 		if (!ast->parent) Log(ERROR) << "Symbol " << front() << " not found. Needed from:\n" << from->first->to_line_string();
@@ -43,10 +43,8 @@ struct NamespacedIdentifier : public std::vector<std::string> {
 	}
 };
 
-static void register_symbol(SyntaxTree::SP &ast, SyntaxTree::SP &type,const std::string &name) {
+static void register_symbol(SyntaxTree::SP &ast, const SyntaxTree::SP &type, const std::string &name) {
 
-	static uint32_t symbol_idx = 1000000;
-	
 	auto translation_unit = ast;
 	do {
 
@@ -57,10 +55,12 @@ static void register_symbol(SyntaxTree::SP &ast, SyntaxTree::SP &type,const std:
 
 	if (translation_unit->symbols.count(name)) 
 		Log(ERROR) << "Symbol " << name << " already defined in scope. \n" 
-			<< "First definition in: " << translation_unit->symbols[name].symbol->first->to_line_string() 
+			<< "First definition in: " << translation_unit->symbols[name]->first->to_line_string() 
 			<< "Duplicated definition in: " << ast->first->to_line_string();
 
-	translation_unit->symbols[name] = { ast, type, "____mc" + std::to_string(symbol_idx++) + name};
+	ast->type = type;
+	ast->generated_id += name;
+	translation_unit->symbols[name] = ast;
 }
 
 
@@ -207,7 +207,7 @@ static struct {
 
 		{"function_definition", [&](SyntaxTree::SP &ast) { 
 			
-			std::string function_name =  ast[2][0]->first->literal;
+			std::string function_name =  ast[2][0].literal();
 
 			SyntaxTree::SP type = ast->parent;
 
@@ -308,68 +308,172 @@ static struct {
 
 struct CodeGenerationPass {
 
-	std::map<std::string, std::ostringstream> code_units;
+	const char *endl = "\n";
+	struct OutputFile {
 
-	uint32_t unit_name_idx = 1000000;
-	std::string new_id() {
+		std::vector<int> scopes;
+		std::string out;
+		template<typename T>
+		OutputFile& operator<<( const T &v ) { 
+			if (scopes.back() == 0) { scopes.back() = 1; out += std::string(4 * ( scopes.size() - 1 ) , ' ') + "{\n"; }
+			for (auto &c : (std::ostringstream() << v).str() ) {
+				out.push_back(c);
+				if ( c == '\n' ) out += std::string( 4 * scopes.size(), ' ' );
+			}
+			return *this;
+		}
+		void start_scope() { scopes.push_back(0); }
+		void end_scope() { 
+			if (scopes.back()) 
+				out += std::string(4 * ( scopes.size() - 1 ) , ' ') + "}\n";
+			scopes.pop_back();
+		}
 
-		return "id_" + std::to_string(unit_name_idx++);
-	}
+	};
 
-	std::string type_to_c(const SyntaxTree::SP &) {
+	struct OutputState {
 
-		std::string ret = "";
+		std::string prefix;
+		std::string current_code_unit = "base";
+		std::map<std::string, OutputFile> code_units;
+	};
+
+	OutputState state;
+
+	std::string type_to_c(SyntaxTree::SP ast) {
+
+		if (ast.str() == "type_name") {
+			if ( ast->children.size() != 1 ) {
+				Log(ERROR) << "More than 1 children?";
+			}
+			return type_to_c( ast[0] );	
+		}
+
+		if (ast.str()=="void") return "void";
+		if (ast.str()=="uint8") return "uint8_t";
+		if (ast.str()=="uint16") return "uint16_t";
+		if (ast.str()=="int8") return "int8_t";
+		if (ast.str()=="int16") return "int16_t";
+		
+
+		std::string ret = ast.str();
+
 
 		return ret;
 
 	}	
 	
-	std::map<std::string, std::function<bool(SyntaxTree::SP &, std::ostringstream &)>> processors = {
+	std::map<std::string, std::function<void(SyntaxTree::SP &)>> processors = {
 
+		{"included_scope", [&](SyntaxTree::SP &ast) { process(ast[0]); }},
 
+		{"namespace", [&](SyntaxTree::SP &ast) { 
+			
+			auto old_prefix = state.prefix;
+			state.prefix += ast[0]->first->literal + "_";
+			std::cout << state.prefix << std::endl;
+			process(ast[1]); 
+			state.prefix = old_prefix;
+		}},
 
-		{"function_call", [&](SyntaxTree::SP &ast, std::ostringstream &oss) -> bool  { 
+		{"type_declaration", [&](SyntaxTree::SP &) { }},
+
+		{"function_definition_with_implicit_type", [&](SyntaxTree::SP &) { }},
+
+/* FUNCTION CODE IS ONLY GENERATED LAZY, SO WE KNOW WHICH KIND OF POINTERS ARE NEEDED AND IF THEY NEED AN INDEPENDENT MODULE OR NOT.
+			auto old_code_unit = state.current_code_unit;
+			
+			auto function_name = ast[0][2].literal();
+
+			state.current_code_unit = state.prefix + function_name;
+
+			auto &header = state.code_units["declarations.h"];
+
+			auto function_type = ast[0][0][0];
+
+			Log(INFO) << function_name;
+
+			header << "extern " << type_to_c(function_type) << " " << function_name << "(";
+			auto &args = ast[0][1]->children;
+			for (auto &arg : args) {
+				if ( &arg != &args.front() ) header << ", ";
+				header << type_to_c(arg[0]);
+			}
+			header << ")" << endl;
+
+			//process(ast[0][3]); 
+
+			state.current_code_unit = old_code_unit;			
+		}},*/
+
+		{"expression", [&](SyntaxTree::SP &asp) { 
+
+			if (asp->children.size() != 1) Log(ERROR) << "Malformed expression.";
+			process( asp[0] );
+		}},
+
+		{"translation_unit", [&](SyntaxTree::SP &ast) { 
+
+			auto &oss = state.code_units[state.current_code_unit];
+
+			oss.start_scope();
+			
+			for (auto &c : ast->children)
+				process( c );
+	
+			oss.end_scope();
+		}},
+
+		{"function_call", [&](SyntaxTree::SP &ast) { 
+
+			auto &oss = state.code_units[state.current_code_unit];
 
 			NamespacedIdentifier function_name(ast->children[0]);
-			auto funtion_ast = function_name.resolve(ast);
+			auto funtion_declaration_ast = function_name.resolve(ast);
 
-			//std::cout << funtion_ast.type->to_string();
+//			std::cout << funtion_ast->type->to_string();
 
-			auto &args = funtion_ast.type[0][1]->children;
-			for (auto &arg : args)
-				process( arg, oss );
+			auto &function_call_args = ast[1]->children;
+			auto &function_declaration_args = funtion_declaration_ast->type[0][1]->children;
 
-			auto return_type = funtion_ast.type[0][0][0][0];
+
+			if ( function_call_args.size() != function_declaration_args.size() )
+				Log(ERROR) << "Wrong number of arguments";
+
+			for (auto &arg : function_call_args) {
+
+				std::cout << arg->to_string();
+				process( arg );
+			}
+
+/*			auto return_type = funtion_ast->type[0][0][0][0];
 			if (return_type->component.str() != "void") {
-				ast->generated_variable_id = new_id();
-				oss << type_to_c(return_type) << " " << ast->generated_variable_id << " = ";
+				oss << type_to_c(return_type) << " " << ast->generated_id << " = ";
+			}*/
+
+			oss << funtion_declaration_ast->generated_id << "( " ;
+			for ( auto &a : function_call_args ) {
+
+				if ( &a != &function_call_args.front() ) oss << ", ";
+				oss << a->generated_id;
 			}
-
-			oss << funtion_ast.generated_name << "( " ;
-			for ( auto &a : args ) {
-
-				if ( &a != &args.front() ) oss << ", ";
-				oss << a->generated_variable_id;
-			}
-			oss << ");" << std::endl;
-
-			return false;
+			oss << ");" << endl;
 		}},
 	};
 
-	void process( SyntaxTree::SP &ast ) { process (ast, code_units["base"] ); }
-	void process(SyntaxTree::SP &ast, std::ostringstream &oss) {
+	void process(SyntaxTree::SP &ast) {
 
-		std::string symbol = ast->component.str();
+		std::string symbol = ast.str();
 
-		bool process_children = true;
+		if (processors.count(symbol)) {
+			
+			processors[symbol](ast);
 
-		if (processors.count(symbol))
-			process_children = processors[symbol](ast, oss);
+		} else {
 
-		if (process_children)
-			for (auto &c : ast->children)
-				process(c, oss);
+			Log(ERROR) << symbol << " does not have a code generator (yet)";
+		
+		}
 	}
 
 };
@@ -391,8 +495,6 @@ void generate_code( std::string source_file_name ) {
 	preprocessor_pass.process(main_syntax_tree);
 	std::cout << main_syntax_tree->to_string();
 
-	Log(ERROR) << "";
-
 	Log(INFO) << "SYMBOL IDENTIFICATION PASS";
 	identify_symbols_pass.process(main_syntax_tree);
 	std::cout << main_syntax_tree->to_string();
@@ -406,10 +508,10 @@ void generate_code( std::string source_file_name ) {
 	code_generation_pass.process(main_syntax_tree);
 	//std::cout << main_syntax_tree->to_string();
 
-	for (auto &cu : code_generation_pass.code_units) {
+	for (auto &cu : code_generation_pass.state.code_units) {
 
 		Log(INFO) << cu.first;
-		std::cout << cu.second.str() << std::endl;
+		std::cout << cu.second.out << std::endl;
 
 	}
 

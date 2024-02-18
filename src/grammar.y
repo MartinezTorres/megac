@@ -52,8 +52,8 @@ postfix_expression
 	;
 
 argument_expression_list
-	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+	: expression
+	| argument_expression_list ',' expression
 	;
 
 %weak
@@ -115,37 +115,37 @@ equality_expression
 %weak
 and_expression
 	: equality_expression
-	| and_expression '&' equality_expression
+	| and_expression %root '&' equality_expression
 	;
 
 %weak
 exclusive_or_expression
 	: and_expression
-	| exclusive_or_expression '^' and_expression
+	| exclusive_or_expression %root '^' and_expression
 	;
 
 %weak
 inclusive_or_expression
 	: exclusive_or_expression
-	| inclusive_or_expression '|' exclusive_or_expression
+	| inclusive_or_expression %root '|' exclusive_or_expression
 	;
 
 %weak
 logical_and_expression
 	: inclusive_or_expression
-	| logical_and_expression 'and' inclusive_or_expression
+	| logical_and_expression %root 'and' inclusive_or_expression
 	;
 
 %weak
 logical_or_expression
 	: logical_and_expression
-	| logical_or_expression 'or' logical_and_expression
+	| logical_or_expression %root 'or' logical_and_expression
 	;
 
 %weak
 conditional_expression
 	: logical_or_expression
-	| logical_or_expression '?' expression ':' conditional_expression
+	| logical_or_expression %root '?' expression ':' conditional_expression
 	;
 
 %weak
@@ -157,13 +157,7 @@ assignment_expression
 %weak
 assignment_operator : %keep '=' | %keep '>>=' | %keep '<<=' | %keep '+=' | %keep '-=' | %keep '*=' | %keep '/=' | %keep '%=' | %keep '&=' | %keep '^=' | %keep '|=' ;
 
-%weak 
-comma_expression
-	: assignment_expression
-	| expression ',' assignment_expression
-	;
-
-expression : comma_expression ;
+expression : assignment_expression ;
 	
 // ########################################################################
 // # DECLARATIONS 

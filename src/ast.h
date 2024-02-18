@@ -20,7 +20,8 @@ struct SyntaxTree {
 			Log(ERROR) << s << " not found in " << ast->component.str() << ". \n" << ast->first->to_line_string(); throw;
 		}
 
-		std::string str() { return get()->component.str(); }
+		std::string str() const { return get()->component.str(); }
+		std::string literal() const {return get()->first->literal; }
 	};
 
 	using TI = std::vector<Token>::const_iterator;
@@ -45,11 +46,10 @@ struct SyntaxTree {
 
 
 	// filled during first pass:
-	struct SymbolMap { SyntaxTree::SP symbol, type; std::string generated_name; };
-	std::map<std::string, SymbolMap> symbols;
+	std::map<std::string, SyntaxTree::SP> symbols;
 	std::map<std::string, SyntaxTree::SP> attributes;
+	SyntaxTree::SP type;
+	std::string generated_id = [](){static uint64_t id = 10000000; return "____mc" + std::to_string(id++) + "_";}();
 
-	// filled during code generation
-	std::string generated_variable_id;
 };
 
