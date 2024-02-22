@@ -21,7 +21,7 @@ NormalizedSourcePtr& NormalizedSourcePtr::operator++() {
 	return *this; 
 }
 
-std::string NormalizedSourcePtr::to_string() const {
+std::string NormalizedSourcePtr::to_string(const NormalizedSourcePtr &end) const {
 
 	constexpr auto RESET = "\x1b[0m";
 
@@ -36,6 +36,7 @@ std::string NormalizedSourcePtr::to_string() const {
 	for (auto i = start_line; i and *i != '\n'; i++ ) os.put(*i);
 	os << std::endl << "      |";
 	for (auto i = start_line; i and (i != it); i++ ) os.put(' ');
+	for (auto i = it; i and (i != end); i++ ) os.put('^');
 	os << "^ ";
 	
 	return os.str();

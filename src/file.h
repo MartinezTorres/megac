@@ -127,6 +127,7 @@ public:
 	auto operator<=>(const NormalizedSourcePtr& o) const = default;
 	operator bool() const { return it; }
 
-	std::string to_string() const;
+	std::string to_string() const { return to_string(*this); }
+	std::string to_string(const NormalizedSourcePtr &end) const;
 	friend std::ostream& operator<<(std::ostream& os, const NormalizedSourcePtr &p) { return os << p.to_string(); }
 };

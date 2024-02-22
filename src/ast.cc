@@ -8,11 +8,11 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 	
 	std::ostringstream oss;
 	if (component.is_symbol()) {
-		oss << prefix << "- " << component.str();
-		if (component.str() == "IDENTIFIER") {
+		oss << prefix << "- " << component.id();
+		if (component.id() == "IDENTIFIER") {
 			oss << ": " << first->to_string();
 		}
-		if (component.str() == "STRING_LITERAL" and first->to_string().size()<40) {
+		if (component.id() == "STRING_LITERAL" and first->to_string().size()<40) {
 			oss << ": " << first->to_string();
 		}
 
@@ -29,8 +29,13 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 				oss << s.first << " ";
 			oss << ">";
 		}
+
+		if ( not c_type.empty() ) {
+			oss << " T{ " << c_type << " }";
+		}
+
 	} else { // component.is_token()
-		oss << prefix << "- TOKEN: " << component.str();
+		oss << prefix << "- TOKEN: " << component.id();
 	}
 	oss << std::endl;
 
@@ -43,6 +48,11 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 		}
 	}
 	return oss.str();
+}
+
+std::string SyntaxTree::SP::show_source() const {
+	auto &ast = *this;
+	return ast->first->show_source();
 }
 
 SyntaxTree::SyntaxTree(SourceFile &file) {
@@ -68,7 +78,7 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 		
 		if (debug.last_error_token != tokens.end()) {
 			auto &token = debug.last_error_token;
-			Log(ERROR) << "Parser failed in line " << token->begin_ptr.get_line() << ". Expecting any of " << oss.str() << " but found " << token->to_string() << ".\n" << token->to_line_string();
+			Log(ERROR) << "Parser failed in line " << token->begin_ptr.get_line() << ". Expecting any of " << oss.str() << " but found " << token->to_string() << ".\n" << token->show_source();
 		} else {
 			Log(ERROR) << "Parser failed. Expecting any of " << oss.str() << " but the file ended";
 		}
@@ -79,7 +89,7 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 		for (auto &ast : all_ast) if (ast->last>last_token) last_token = ast->last;
 
 		if (last_token != tokens.end()) 
-			Log(ERROR) << "Not all tokens used. Last token in: \n "  << all_ast.back()->to_string() << "\n" << last_token->to_line_string();
+			Log(ERROR) << "Not all tokens used. Last token in: \n "  << all_ast.back().to_string() << "\n" << last_token->show_source();
 
 		int count = 0;
 		for (auto &ast : all_ast) if (ast->last == last_token) count++;
@@ -87,7 +97,7 @@ SyntaxTree::SyntaxTree(SourceFile &file) {
 
 		if (count!=1) {
 			for (auto &ast : all_ast) {
-				std::cout << ast->to_string();
+				std::cout << ast.to_string();
 			}
 			Log(ERROR) << count << " ambiguous AST";
 		}

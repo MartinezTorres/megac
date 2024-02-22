@@ -28,7 +28,7 @@ struct Token {
 	bool start_of_line;  // True if this token is at beginning of line
 	
 	std::string to_string() const;
-	std::string to_line_string() const;
+	std::string show_source() const;
 	
 	Token(Type _type, uint64_t _val, NormalizedSourcePtr _begin_ptr, NormalizedSourcePtr _end_ptr, bool _has_space, bool _start_of_line ) 
 		: type(_type), val(_val), begin_ptr(_begin_ptr), end_ptr(_end_ptr), has_space(_has_space), start_of_line(_start_of_line)  {}

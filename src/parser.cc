@@ -31,7 +31,7 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 					debug.expected_targets.clear();
 				}
 				if (debug.last_error_token == token_it) {
-					debug.expected_targets.push_back(target.str());
+					debug.expected_targets.push_back(target.id());
 				}
 				return std::vector<SyntaxTree::SP>();				
 			}
@@ -53,17 +53,17 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 			return expect( false );
 
 		// Also there are some leaf nodes harcoded in the symbol table
-		if ( target.is_symbol() and target.str() == "IDENTIFIER" ) 
+		if ( target.is_symbol() and target.id() == "IDENTIFIER" ) 
 			return expect( (token_it->type == Token::IDENTIFIER) and (grammar.reserved_keywords.count(token_it->literal) == 0) );
 
-		if ( target.is_symbol() and target.str() == "CONSTANT" ) 
+		if ( target.is_symbol() and target.id() == "CONSTANT" ) 
 			return expect(token_it->type == Token::NUMERIC);
 		
-		if ( target.is_symbol() and target.str() == "STRING_LITERAL" ) 
+		if ( target.is_symbol() and target.id() == "STRING_LITERAL" ) 
 			return expect(token_it->type == Token::STRING_LITERAL);
 
 		if ( target.is_token() ) 
-			return expect( (token_it->type != Token::STRING_LITERAL) and (token_it->literal == target.str()) );
+			return expect( (token_it->type != Token::STRING_LITERAL) and (token_it->literal == target.id()) );
 
 	} 
 
@@ -72,14 +72,14 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 	std::vector<SyntaxTree::SP> all_ast;
 
 	// register our current target.
-	parent_targets_without_consuming_tokens.push_back(target.str());
+	parent_targets_without_consuming_tokens.push_back(target.id());
 
 	// for each symbol, we tackle first the recipes that aren't front-recursive
-	for (auto &recipe : grammar.symbols[target.str()].recipes) {
+	for (auto &recipe : grammar.symbols[target.id()].recipes) {
 
 		// skip pure front-recursive recipes.
 		{
-			bool is_front_recursive_recipe = recipe.front().is_symbol() and (recipe.front().str() == target.str());
+			bool is_front_recursive_recipe = recipe.front().is_symbol() and (recipe.front().id() == target.id());
 			if (is_front_recursive_recipe) continue;
 		}
 
@@ -106,7 +106,7 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 						a2c->parent = a2;
 
 					if (component.force_root) {
-						a2->component = Grammar::Symbol::Component::Symbol( c->component.str() );
+						a2->component = Grammar::Symbol::Component::Symbol( c->component.id() );
 						for (auto &c2 : c->children) {
 							c2->parent = a2;
 							a2->children.push_back( c2 ) ;
@@ -138,11 +138,11 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 
 			all_expanded_ast.push_back(ast_to_expand);
 			
-			for (auto &recipe : grammar.symbols[target.str()].recipes) {
+			for (auto &recipe : grammar.symbols[target.id()].recipes) {
 								
 				// skip non front-recursive recipes.
 				{
-					bool is_front_recursive_recipe = recipe.front().is_symbol() and (recipe.front().str() == target.str());
+					bool is_front_recursive_recipe = recipe.front().is_symbol() and (recipe.front().id() == target.id());
 					if (not is_front_recursive_recipe) continue;
 				}
 				
@@ -170,7 +170,7 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 								a2c->parent = a2;
 
 							if (component.force_root) {
-								a2->component = Grammar::Symbol::Component::Symbol( c->component.str() );
+								a2->component = Grammar::Symbol::Component::Symbol( c->component.id() );
 								for (auto &c2 : c->children) {
 									c2->parent = a2;
 									a2->children.push_back( c2 ) ;
@@ -194,9 +194,9 @@ std::vector<SyntaxTree::SP> parse(SyntaxTree::TI token_it, SyntaxTree::TI last_t
 		all_ast = all_expanded_ast;
 	}
 
-	if (grammar.symbols[target.str()].is_weak) {
+	if (grammar.symbols[target.id()].is_weak) {
 		for (auto &ast : all_ast) {
-			if (ast->component.str() != target.str()) {
+			if (ast->component.id() != target.id()) {
 				continue;
 			}
 			if (ast->children.empty()) {

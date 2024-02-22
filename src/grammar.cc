@@ -95,10 +95,10 @@ Grammar::Grammar() {
 
 					symbol.recipes.emplace_back(1,phony_component);
 					
-					if (symbols.count(phony_component.str()))
+					if (symbols.count(phony_component.id()))
 						Log(ERROR) << "Sub symbol " << subsymbol_name << " within " << symbol_name << "already exists";
 
-					Symbol &subsymbol = symbols[phony_component.str()];
+					Symbol &subsymbol = symbols[phony_component.id()];
 					//subsymbol.name = subsymbol_name;
 					subsymbol.is_weak = false;
 

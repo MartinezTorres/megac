@@ -25,11 +25,9 @@ std::string Token::to_string() const {
 	return ret;
 }
 
-std::string Token::to_line_string() const {
+std::string Token::show_source() const {
 	
-	std::ostringstream oss;
-	oss << begin_ptr << "\n";
-	return oss.str();
+	return begin_ptr.to_string();
 }
 
 

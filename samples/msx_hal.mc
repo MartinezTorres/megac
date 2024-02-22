@@ -6,28 +6,10 @@ namespace MSX {
 	
 	namespace graphics {
 		
-		void print( string msg ) {
+		void print( string_view msg ) {
 			
 			foreach ( c : msg ) 
 				BIOS::CHPUT(+c);
-
-			/*{
-				auto begin = msg.begin;
-				auto end = msg.end;
-				for ( ; begin != end ; ++begin )  {
-					auto c = begin[0];	
-					BIOS::CHPUT(c);
-				}
-			}
-
-			{
-				typeof(msg.begin) begin = msg.begin;
-				typeof(msg.end) end = msg.end;
-				for ( ; begin != end ; ++begin )  {
-					typeof(begin[0]) c = begin[0];	
-					BIOS::CHPUT(c);
-				}
-			}*/
 		}
 	}
 }
