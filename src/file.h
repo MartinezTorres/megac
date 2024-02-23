@@ -33,7 +33,8 @@ struct SourceFile {
 			Log(ERROR) << ASSERT_INFO << e.what();
 		}
 
-		Assert(bool(source)) << "file is valid";	
+		if (not source) 
+			Log(ERROR) << " error reading source file";
 	}
 
 	SourceFile(std::string name, const std::string_view &content) : path(name), source(std::make_shared<std::string>(content)) {}
@@ -127,7 +128,7 @@ public:
 	auto operator<=>(const NormalizedSourcePtr& o) const = default;
 	operator bool() const { return it; }
 
-	std::string to_string() const { return to_string(*this); }
-	std::string to_string(const NormalizedSourcePtr &end) const;
+	std::string to_string() const { return NormalizedSourcePtr::show_source(*this, *this); }
+	static std::string show_source(const NormalizedSourcePtr &begin, const NormalizedSourcePtr &end);
 	friend std::ostream& operator<<(std::ostream& os, const NormalizedSourcePtr &p) { return os << p.to_string(); }
 };

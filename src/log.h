@@ -98,8 +98,8 @@ private:
 	}		
 };
 
-struct Assert : Log { Assert(bool condition) : Log(condition ? DEBUG : ERROR) {} };
-/*
+/*struct Assert : Log { Assert(bool condition) : Log(condition ? DEBUG : ERROR) {} };
+
 struct Str {
 
 	std::ostringstream oss;

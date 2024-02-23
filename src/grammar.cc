@@ -68,7 +68,8 @@ Grammar::Grammar() {
 		// Consume ':'
 		{
 			if (not (iss >> s) ) return;
-			Assert(s==":") << ": expected, got " << s;
+			if (s != ":")
+				Log(ERROR)  << "':' expected, got " << s;
 		}
 		
 		std::vector<std::vector<Symbol::Component>> recipes;
@@ -83,14 +84,14 @@ Grammar::Grammar() {
 				if (subsymbol_name.empty()) {
 					
 					for (auto &recipe : recipes) {
-						Assert(not recipe.empty()) << " found an empty recipe in symbol " << symbol_name;
+						if (recipe.empty()) 
+							Log(ERROR) << " found an empty recipe in symbol " << symbol_name;
 						symbol.recipes.push_back(recipe);
 					}
 					recipes.clear();
 				} else {
 
 					Grammar::Symbol::Component phony_component;
-					//phony_component = Grammar::Symbol::Component::Symbol(symbol_name + "_" + subsymbol_name);
 					phony_component = Grammar::Symbol::Component::Symbol(subsymbol_name);
 
 					symbol.recipes.emplace_back(1,phony_component);
@@ -99,12 +100,11 @@ Grammar::Grammar() {
 						Log(ERROR) << "Sub symbol " << subsymbol_name << " within " << symbol_name << "already exists";
 
 					Symbol &subsymbol = symbols[phony_component.id()];
-					//subsymbol.name = subsymbol_name;
 					subsymbol.is_weak = false;
 
 					for (auto &recipe : recipes) {
-						Assert(not recipe.empty()) << " found an empty recipe in symbol " << subsymbol_name;
-						//Log(ERROR_NOTHROW) << "Subsymbol: " << subsymbol_name << " recipe: " << ([&](){std::ostringstream oss; for (auto &v:recipe) oss<<v<<" "; return oss.str();}());
+						if (recipe.empty()) 
+							Log(ERROR) << " found an empty recipe in symbol " << subsymbol_name;
 						subsymbol.recipes.push_back(recipe);
 					}
 					recipes.clear();

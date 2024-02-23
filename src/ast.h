@@ -4,7 +4,7 @@
 
 struct SyntaxTree {
 private:
-	std::string to_string(std::string) const;
+	std::string to_string_int(std::string) const;
 public:
 
 
@@ -39,7 +39,7 @@ public:
 		};
 
 		GLog log(LogLevel l) const { return GLog(l, *this); };
-		std::string to_string(std::string prefix = "") const { return this->to_string(prefix); };
+		std::string to_string(std::string prefix = "") const { const auto &ast = *this; return ast->to_string_int(prefix); };
 		std::string show_source() const;
 	};
 

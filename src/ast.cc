@@ -4,7 +4,7 @@
 #include <set>
 
 
-std::string SyntaxTree::to_string(std::string prefix) const {
+std::string SyntaxTree::to_string_int(std::string prefix) const {
 	
 	std::ostringstream oss;
 	if (component.is_symbol()) {
@@ -42,7 +42,7 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 	for (auto &c : children) {
 		oss << prefix + "  |" << std::endl;
 		if (c) {
-			oss << c->to_string(prefix + (&c == &children.back()?"   ":"  |"));
+			oss << c->to_string_int(prefix + (&c == &children.back()?"   ":"  |"));
 		} else {
 			oss << "EMPTY CHILD";
 		}
@@ -51,8 +51,13 @@ std::string SyntaxTree::to_string(std::string prefix) const {
 }
 
 std::string SyntaxTree::SP::show_source() const {
+
 	auto &ast = *this;
-	return ast->first->show_source();
+
+	std::string ret = "\n";
+	ret += NormalizedSourcePtr::show_source(ast->first->begin_ptr, ast->last->end_ptr);
+
+	return ret;
 }
 
 SyntaxTree::SyntaxTree(SourceFile &file) {
